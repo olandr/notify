@@ -40,12 +40,12 @@ func ExampleWatch_darwin() {
 // Investigating notify.(*FSEvent).Flags field we are able to say whether
 // the event's path is a file or a directory and many more.
 func ExampleWatch_darwinDirFileSymlink() {
-	var must = func(err error) {
+	must := func(err error) {
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
-	var stop = func(c ...chan<- notify.EventInfo) {
+	stop := func(c ...chan<- notify.EventInfo) {
 		for _, c := range c {
 			notify.Stop(c)
 		}

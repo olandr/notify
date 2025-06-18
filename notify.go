@@ -19,6 +19,7 @@
 
 package notify
 
+// bug(olandr): This line causes leaks as it is simply spawns a goroutine and never gracefully cleans it up.
 var defaultTree = newTree()
 
 type DoNotWatchFn func(string) bool
@@ -82,4 +83,9 @@ func WatchWithFilter(path string, c chan<- EventInfo,
 // receive no more signals.
 func Stop(c chan<- EventInfo) {
 	defaultTree.Stop(c)
+}
+
+// Close handles the cleanup of the defaultTree related goroutines.
+func CloseNotify() {
+	defaultTree.Close()
 }

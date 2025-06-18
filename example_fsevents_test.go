@@ -14,18 +14,19 @@ import (
 )
 
 // This example shows how to use FSEvents-specifc event values.
-func ExampleWatch_darwin() {
+func ExampleNotify_watch_darwin() {
 	// Make the channel buffered to ensure no event is dropped. Notify will drop
 	// an event if the receiver is not able to keep up the sending pace.
 	c := make(chan notify.EventInfo, 1)
-
+	n := notify.NewNotify()
+	defer n.Close()
 	// Set up a watchpoint listening for FSEvents-specific events within a
 	// current working directory. Dispatch each FSEventsChangeOwner and FSEventsMount
 	// events separately to c.
-	if err := notify.Watch(".", c, notify.FSEventsChangeOwner, notify.FSEventsMount); err != nil {
+	if err := n.Watch(".", c, notify.FSEventsChangeOwner, notify.FSEventsMount); err != nil {
 		log.Fatal(err)
 	}
-	defer notify.Stop(c)
+	defer n.Stop(c)
 
 	// Block until an event is received.
 	switch ei := <-c; ei.Event() {
@@ -39,7 +40,9 @@ func ExampleWatch_darwin() {
 // This example shows how to work with EventInfo's underlying FSEvent struct.
 // Investigating notify.(*FSEvent).Flags field we are able to say whether
 // the event's path is a file or a directory and many more.
-func ExampleWatch_darwinDirFileSymlink() {
+func ExampleNotify_watch_darwinDirFileSymlink() {
+	n := notify.NewNotify()
+	defer n.Close()
 	must := func(err error) {
 		if err != nil {
 			log.Fatal(err)
@@ -47,7 +50,7 @@ func ExampleWatch_darwinDirFileSymlink() {
 	}
 	stop := func(c ...chan<- notify.EventInfo) {
 		for _, c := range c {
-			notify.Stop(c)
+			n.Stop(c)
 		}
 	}
 
@@ -60,10 +63,10 @@ func ExampleWatch_darwinDirFileSymlink() {
 
 	// Set up a single watchpoint listening for FSEvents-specific events on
 	// multiple user-provided channels.
-	must(notify.Watch(".", dir, notify.FSEventsIsDir))
-	must(notify.Watch(".", file, notify.FSEventsIsFile))
-	must(notify.Watch(".", symlink, notify.FSEventsIsSymlink))
-	must(notify.Watch(".", all, notify.All))
+	must(n.Watch(".", dir, notify.FSEventsIsDir))
+	must(n.Watch(".", file, notify.FSEventsIsFile))
+	must(n.Watch(".", symlink, notify.FSEventsIsSymlink))
+	must(n.Watch(".", all, notify.All))
 	defer stop(dir, file, symlink, all)
 
 	// Block until an event is received.
@@ -98,17 +101,19 @@ func ExampleWatch_darwinDirFileSymlink() {
 //
 // This example shows how to coalesce events by investigating notify.(*FSEvent).ID
 // field, for the science.
-func ExampleWatch_darwinCoalesce() {
+func ExampleNotify_watch_darwinCoalesce() {
 	// Make the channels buffered to ensure no event is dropped. Notify will drop
 	// an event if the receiver is not able to keep up the sending pace.
 	c := make(chan notify.EventInfo, 4)
 
+	n := notify.NewNotify()
+	defer n.Close()
 	// Set up a watchpoint listetning for events within current working directory.
 	// Dispatch all platform-independent separately to c.
-	if err := notify.Watch(".", c, notify.All); err != nil {
+	if err := n.Watch(".", c, notify.All); err != nil {
 		log.Fatal(err)
 	}
-	defer notify.Stop(c)
+	defer n.Stop(c)
 
 	var id uint64
 	var coalesced []notify.EventInfo

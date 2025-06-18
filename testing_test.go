@@ -589,7 +589,7 @@ func (c Chans) Drain() (ei []EventInfo) {
 	return
 }
 
-// Call represents single call to Watcher issued by the Tree
+// Call represents single call to Watcher issued by the tree
 // and recorded by a spy Watcher mock.
 type Call struct {
 	F   FuncType       // denotes type of function to call, for both watcher and notifier interface

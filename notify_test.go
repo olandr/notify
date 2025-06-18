@@ -16,7 +16,6 @@ import (
 )
 
 func TestDefaultTree(t *testing.T) {
-	defer CloseNotify()
 	t.Run("notify example", func(t *testing.T) {
 
 		n := NewNotifyTest(t, "testdata/vfs.txt")
@@ -112,7 +111,8 @@ func TestDefaultTree(t *testing.T) {
 	})
 
 	t.Run("notify renmae in root", func(t *testing.T) {
-
+		n := NewNotify()
+		defer n.Close()
 		tmpDir := t.TempDir()
 
 		c := make(chan EventInfo, 100)
@@ -122,10 +122,10 @@ func TestDefaultTree(t *testing.T) {
 
 		mustT(t, os.Mkdir(first, 0777))
 
-		if err := Watch(tmpDir+"/...", c, All); err != nil {
+		if err := n.Watch(tmpDir+"/...", c, All); err != nil {
 			t.Fatal(err)
 		}
-		defer Stop(c)
+		defer n.Stop(c)
 
 		mustT(t, os.Rename(first, second))
 		time.Sleep(50 * time.Millisecond) // Need some time to process rename.
@@ -148,7 +148,8 @@ func TestDefaultTree(t *testing.T) {
 	})
 
 	t.Run("notify recreated", func(t *testing.T) {
-
+		n := NewNotify()
+		defer n.Close()
 		tmpDir := t.TempDir()
 
 		dir := filepath.Join(tmpDir, "folder")
@@ -156,8 +157,8 @@ func TestDefaultTree(t *testing.T) {
 
 		// Start watching
 		eventChan := make(chan EventInfo, 1000)
-		mustT(t, Watch(tmpDir+"/...", eventChan, All))
-		defer Stop(eventChan)
+		mustT(t, n.Watch(tmpDir+"/...", eventChan, All))
+		defer n.Stop(eventChan)
 
 		recreateFolder := func() {
 			// Give the sync some time to process events

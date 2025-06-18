@@ -33,7 +33,7 @@ type watcher interface {
 	// the existing event set currently registered for the given path, and the
 	// new, requested event set.
 	//
-	// It is guaranteed that Tree will not pass to Rewatch zero value for any
+	// It is guaranteed that tree will not pass to Rewatch zero value for any
 	// of its arguments. If old == new and watcher can be upgraded to
 	// recursiveWatcher interface, a watch for the corresponding path is expected
 	// to be changed from recursive to the non-recursive one.
@@ -63,7 +63,7 @@ type recursiveWatcher interface {
 	//
 	// To modify a watch-point means either to expand or shrink its event set.
 	//
-	// Tree can want to either relocate, modify or relocate and modify a watch-point
+	// tree can want to either relocate, modify or relocate and modify a watch-point
 	// via single RecursiveRewatch call.
 	//
 	// If oldpath == newpath, the watch-point is expected to change its event set value
@@ -77,7 +77,7 @@ type recursiveWatcher interface {
 	// value from oldevent to the newevent. In other words the end result must be
 	// a watch-point set on newpath with newevent value of its event set.
 	//
-	// It is guaranteed that Tree will not pass to RecurisveRewatcha zero value
+	// It is guaranteed that tree will not pass to RecurisveRewatcha zero value
 	// for any of its arguments. If oldpath == newpath and oldevent == newevent,
 	// a watch for the corresponding path is expected to be changed for
 	// non-recursive to the recursive one.

@@ -13,17 +13,18 @@ import (
 )
 
 // This is a basic example showing how to work with notify.Watch function.
-func ExampleWatch() {
+func ExampleNotify_watch() {
 	// Make the channel buffered to ensure no event is dropped. Notify will drop
 	// an event if the receiver is not able to keep up the sending pace.
 	c := make(chan notify.EventInfo, 1)
-
+	n := notify.NewNotify()
+	defer n.Close()
 	// Set up a watchpoint listening on events within current working directory.
 	// Dispatch each create and remove events separately to c.
-	if err := notify.Watch(".", c, notify.Create, notify.Remove); err != nil {
+	if err := n.Watch(".", c, notify.Create, notify.Remove); err != nil {
 		log.Fatal(err)
 	}
-	defer notify.Stop(c)
+	defer n.Stop(c)
 
 	// Block until an event is received.
 	ei := <-c
@@ -31,17 +32,18 @@ func ExampleWatch() {
 }
 
 // This example shows how to set up a recursive watchpoint.
-func ExampleWatch_recursive() {
+func ExampleNotify_watch_recursive() {
 	// Make the channel buffered to ensure no event is dropped. Notify will drop
 	// an event if the receiver is not able to keep up the sending pace.
 	c := make(chan notify.EventInfo, 1)
-
+	n := notify.NewNotify()
+	defer n.Close()
 	// Set up a watchpoint listening for events within a directory tree rooted
 	// at current working directory. Dispatch remove events to c.
-	if err := notify.Watch("./...", c, notify.Remove); err != nil {
+	if err := n.Watch("./...", c, notify.Remove); err != nil {
 		log.Fatal(err)
 	}
-	defer notify.Stop(c)
+	defer n.Stop(c)
 
 	// Block until an event is received.
 	ei := <-c
@@ -50,18 +52,19 @@ func ExampleWatch_recursive() {
 
 // This example shows why it is important to not create leaks by stoping
 // a channel when it's no longer being used.
-func ExampleStop() {
+func ExampleNotify_stop() {
 	waitfor := func(path string, e notify.Event, timeout time.Duration) bool {
 		dir, file := filepath.Split(path)
 		c := make(chan notify.EventInfo, 1)
-
-		if err := notify.Watch(dir, c, e); err != nil {
+		n := notify.NewNotify()
+		defer n.Close()
+		if err := n.Watch(dir, c, e); err != nil {
 			log.Fatal(err)
 		}
 		// Clean up watchpoint associated with c. If Stop was not called upon
 		// return the channel would be leaked as notify holds the only reference
 		// to it and does not release it on its own.
-		defer notify.Stop(c)
+		defer n.Stop(c)
 
 		t := time.After(timeout)
 

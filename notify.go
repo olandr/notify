@@ -19,8 +19,13 @@
 
 package notify
 
-// bug(olandr): This line causes leaks as it is simply spawns a goroutine and never gracefully cleans it up.
-var defaultTree = newTree()
+type Notify struct {
+	tree tree
+}
+
+func NewNotify() Notify {
+	return Notify{tree: NewTree()}
+}
 
 type DoNotWatchFn func(string) bool
 
@@ -63,17 +68,17 @@ type DoNotWatchFn func(string) bool
 // mind this limitation while setting recursive watchpoints for your application,
 // e.g. use persistent paths like %userprofile% or watch additionally parent
 // directory of a recursive watchpoint in order to receive delete events for it.
-func Watch(path string, c chan<- EventInfo, events ...Event) error {
-	return defaultTree.Watch(path, c, nil, events...)
+func (notify *Notify) Watch(path string, c chan<- EventInfo, events ...Event) error {
+	return notify.tree.Watch(path, c, nil, events...)
 }
 
 // This function works the same way as Watch. In addition it does not watch
 // files or directories based on the return value of the argument function
 // doNotWatch. Given a path as argument doNotWatch should return true if the
 // file or directory should not be watched.
-func WatchWithFilter(path string, c chan<- EventInfo,
+func (notify *Notify) WatchWithFilter(path string, c chan<- EventInfo,
 	doNotWatch func(string) bool, events ...Event) error {
-	return defaultTree.Watch(path, c, doNotWatch, events...)
+	return notify.tree.Watch(path, c, doNotWatch, events...)
 }
 
 // Stop removes all watchpoints registered for c. All underlying watches are
@@ -81,11 +86,11 @@ func WatchWithFilter(path string, c chan<- EventInfo,
 //
 // Stop does not close c. When Stop returns, it is guaranteed that c will
 // receive no more signals.
-func Stop(c chan<- EventInfo) {
-	defaultTree.Stop(c)
+func (notify *Notify) Stop(c chan<- EventInfo) {
+	notify.tree.Stop(c)
 }
 
-// Close handles the cleanup of the defaultTree related goroutines.
-func CloseNotify() {
-	defaultTree.Close()
+// Close handles the cleanup of the tree related goroutines.
+func (notify *Notify) Close() {
+	notify.tree.Close()
 }

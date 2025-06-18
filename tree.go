@@ -12,7 +12,7 @@ type tree interface {
 	Close() error
 }
 
-func newTree() tree {
+func NewTree() tree {
 	c := make(chan EventInfo, buffer)
 	w := newWatcher(c)
 	if rw, ok := w.(recursiveWatcher); ok {

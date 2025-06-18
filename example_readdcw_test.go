@@ -14,18 +14,19 @@ import (
 )
 
 // This example shows how to watch directory-name changes in the working directory subtree.
-func ExampleWatch_windows() {
+func ExampleNotify_watch_windows() {
 	// Make the channel buffered to ensure no event is dropped. Notify will drop
 	// an event if the receiver is not able to keep up the sending pace.
 	c := make(chan notify.EventInfo, 4)
-
+	n := notify.NewNotify()
+	defer n.Close()
 	// Since notify package behaves exactly like ReadDirectoryChangesW function,
 	// we must register notify.FileNotifyChangeDirName filter and wait for one
 	// of FileAction* events.
-	if err := notify.Watch("./...", c, notify.FileNotifyChangeDirName); err != nil {
+	if err := n.Watch("./...", c, notify.FileNotifyChangeDirName); err != nil {
 		log.Fatal(err)
 	}
-	defer notify.Stop(c)
+	defer n.Stop(c)
 
 	// Wait for actions.
 	for ei := range c {

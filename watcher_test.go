@@ -19,7 +19,7 @@ func TestWatcher(t *testing.T) {
 	w := NewWatcherTest(t, "testdata/vfs.txt")
 	defer w.Close()
 
-	cases := [...]WCase{
+	cases := [...]FileOperation{
 		create(w, "src/github.com/ppknap/link/include/coost/.link.hpp.swp"),
 		create(w, "src/github.com/rjeczalik/fs/fs_test.go"),
 		create(w, "src/github.com/rjeczalik/fs/binfs/"),
@@ -62,7 +62,7 @@ func TestStopPathNotExists(t *testing.T) {
 	w.Watch("", All)
 
 	drainall(w.C)
-	cases := [...]WCase{
+	cases := [...]FileOperation{
 		create(w, "file"),
 		create(w, "dir/"),
 	}
@@ -79,7 +79,7 @@ func TestWatcherUnwatch(t *testing.T) {
 	w.Watch("", All)
 
 	drainall(w.C)
-	cases := [...]WCase{
+	cases := [...]FileOperation{
 		create(w, "file"),
 		create(w, "dir/"),
 	}

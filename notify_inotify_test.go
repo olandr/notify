@@ -17,7 +17,7 @@ func TestNotifySystemAndGlobalMix(t *testing.T) {
 	n.Watch("src/github.com/rjeczalik/fs", ch[0], Create)
 	n.Watch("src/github.com/rjeczalik/fs", ch[1], InCreate)
 
-	cases := []NCase{
+	cases := []Case{
 		{
 			Event:    icreate(n.W(), "src/github.com/rjeczalik/fs/.main.cc.swr"),
 			Receiver: Chans{ch[0], ch[1]},

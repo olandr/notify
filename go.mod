@@ -1,8 +1,10 @@
 module github.com/olandr/notify
 
-go 1.11
+go 1.23.0
+
+toolchain go1.24.1
 
 require (
 	go.uber.org/goleak v1.3.0
-	golang.org/x/sys v0.0.0-20180926160741-c2ed4eda69e7
+	golang.org/x/sys v0.33.0
 )

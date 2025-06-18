@@ -10,7 +10,7 @@ package notify
 import "testing"
 
 // TODO(ppknap) : remove notify.Create event.
-func rcreate(w *W, path string) WCase {
+func rcreate(w *MockWatcher, path string) FileOperation {
 	cas := create(w, path)
 	cas.Events = append(cas.Events,
 		&Call{P: path, E: FileActionAdded},
@@ -19,7 +19,7 @@ func rcreate(w *W, path string) WCase {
 }
 
 // TODO(ppknap) : remove notify.Remove event.
-func rremove(w *W, path string) WCase {
+func rremove(w *MockWatcher, path string) FileOperation {
 	cas := remove(w, path)
 	cas.Events = append(cas.Events,
 		&Call{P: path, E: FileActionRemoved},
@@ -28,7 +28,7 @@ func rremove(w *W, path string) WCase {
 }
 
 // TODO(ppknap) : remove notify.Rename event.
-func rrename(w *W, oldpath, newpath string) WCase {
+func rrename(w *MockWatcher, oldpath, newpath string) FileOperation {
 	cas := rename(w, oldpath, newpath)
 	cas.Events = append(cas.Events,
 		&Call{P: oldpath, E: FileActionRenamedOldName},
@@ -38,7 +38,7 @@ func rrename(w *W, oldpath, newpath string) WCase {
 }
 
 // TODO(ppknap) : remove notify.Write event.
-func rwrite(w *W, path string, p []byte) WCase {
+func rwrite(w *MockWatcher, path string, p []byte) FileOperation {
 	cas := write(w, path, p)
 	cas.Events = append(cas.Events,
 		&Call{P: path, E: FileActionModified},
@@ -56,7 +56,7 @@ func TestWatcherReadDirectoryChangesW(t *testing.T) {
 	w := NewWatcherTest(t, "testdata/vfs.txt", events...)
 	defer w.Close()
 
-	cases := [...]WCase{
+	cases := [...]FileOperation{
 		rcreate(w, "src/github.com/rjeczalik/fs/fs_windows.go"),
 		rcreate(w, "src/github.com/rjeczalik/fs/subdir/"),
 		rremove(w, "src/github.com/rjeczalik/fs/fs.go"),

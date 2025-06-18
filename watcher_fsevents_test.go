@@ -93,7 +93,7 @@ func TestWatcherShadowedWriteCreate(t *testing.T) {
 	w := NewWatcherTest(t, "testdata/vfs.txt")
 	defer w.Close()
 
-	cases := [...]WCase{
+	cases := [...]FileOperation{
 		// i=0
 		create(w, "src/github.com/rjeczalik/fs/.fs.go.swp"),
 		// i=1

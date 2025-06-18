@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func fremove(w *W, path string, files []string) WCase {
+func fremove(w *MockWatcher, path string, files []string) FileOperation {
 	cas := remove(w, path)
 	cas.Events[0] = &Call{P: path, E: FileDelete}
 	for _, f := range files {
@@ -22,16 +22,16 @@ func fremove(w *W, path string, files []string) WCase {
 	return cas
 }
 
-func fwrite(w *W, path string, p []byte) WCase {
+func fwrite(w *MockWatcher, path string, p []byte) FileOperation {
 	cas := write(w, path, p)
 	path = cas.Events[0].Path()
 	cas.Events[0] = &Call{P: path, E: FileModified}
 	return cas
 }
 
-func frename(w *W, path string, files []string) WCase {
+func frename(w *MockWatcher, path string, files []string) FileOperation {
 	const ext = ".notify"
-	cas := WCase{
+	cas := FileOperation{
 		Action: func() {
 			file := filepath.Join(w.root, path)
 			if err := os.Rename(file, file+ext); err != nil {
@@ -61,7 +61,7 @@ func TestWatcherFen(t *testing.T) {
 	w := NewWatcherTest(t, "testdata/vfs.txt", events...)
 	defer w.Close()
 
-	cases := [...]WCase{
+	cases := [...]FileOperation{
 		fremove(w, "src/github.com/ppknap/link/include/coost/link", []string{
 			"src/github.com/ppknap/link/include/coost/link/definitions.hpp",
 			"src/github.com/ppknap/link/include/coost/link/detail/bundle.hpp",

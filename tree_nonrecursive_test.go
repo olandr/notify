@@ -14,7 +14,7 @@ func TestNonrecursiveTree(t *testing.T) {
 
 	ch := NewChans(5)
 
-	watches := [...]RCase{
+	watches := [...]Case{
 		// i=0
 		{
 			Call: Call{
@@ -232,62 +232,62 @@ func TestNonrecursiveTree(t *testing.T) {
 
 	n.ExpectRecordedCalls(watches[:])
 
-	events := [...]TCase{
+	events := [...]Case{
 		// i=0
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/fs.go", E: Rename},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/fs.go", E: Rename},
 			Receiver: Chans{ch[0]},
 		},
 		// i=1
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/fs.go", E: Create},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/fs.go", E: Create},
 			Receiver: nil,
 		},
 		// i=2
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/cmd.go", E: Remove},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/cmd.go", E: Remove},
 			Receiver: Chans{ch[1]},
 		},
 		// i=3
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/doc.go", E: Write},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/doc.go", E: Write},
 			Receiver: nil,
 		},
 		// i=4
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/mktree/main.go", E: Write},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/mktree/main.go", E: Write},
 			Receiver: Chans{ch[2]},
 		},
 		// i=5
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/mktree/tree.go", E: Create},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/mktree/tree.go", E: Create},
 			Receiver: nil,
 		},
 		// i=6
 		{
-			Event:    Call{P: "src/github.com/pblaszczyk/qttu/include/.lock", E: Create},
+			Call:     Call{P: "src/github.com/pblaszczyk/qttu/include/.lock", E: Create},
 			Receiver: Chans{ch[3]},
 		},
 		// i=7
 		{
-			Event:    Call{P: "src/github.com/pblaszczyk/qttu/include/qttu/detail/registry.hh", E: Write},
+			Call:     Call{P: "src/github.com/pblaszczyk/qttu/include/qttu/detail/registry.hh", E: Write},
 			Receiver: Chans{ch[3], ch[1], ch[4]},
 		},
 		// i=8
 		{
-			Event:    Call{P: "src/github.com/pblaszczyk/qttu/include/qttu", E: Remove},
+			Call:     Call{P: "src/github.com/pblaszczyk/qttu/include/qttu", E: Remove},
 			Receiver: nil,
 		},
 		// i=9
 		{
-			Event:    Call{P: "src/github.com/pblaszczyk/qttu/include", E: Remove},
+			Call:     Call{P: "src/github.com/pblaszczyk/qttu/include", E: Remove},
 			Receiver: Chans{ch[3]},
 		},
 	}
 
 	n.ExpectTreeEvents(events[:], ch)
 
-	stops := [...]RCase{
+	stops := [...]Case{
 		// i=0
 		{
 			Call: Call{
@@ -432,7 +432,7 @@ func TestNonrecursiveTreeInternal(t *testing.T) {
 
 	ch := NewChans(5)
 
-	watches := [...]RCase{
+	watches := [...]Case{
 		// i=0
 		{
 			Call: Call{
@@ -494,45 +494,45 @@ func TestNonrecursiveTreeInternal(t *testing.T) {
 
 	n.ExpectRecordedCalls(watches[:])
 
-	events := [...]TCase{
+	events := [...]Case{
 		// i=0
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/dir", E: Create, Dir: true},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/dir", E: Create, Dir: true},
 			Receiver: Chans{c},
 		},
 		// i=1
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/dir/another", E: Create, Dir: true},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/dir/another", E: Create, Dir: true},
 			Receiver: Chans{c},
 		},
 		// i=2
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/file", E: Create, Dir: false},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/file", E: Create, Dir: false},
 			Receiver: nil,
 		},
 		// i=3
 		{
-			Event:    Call{P: "src/github.com/ppknap/link/include/coost/dir", E: Create, Dir: true},
+			Call:     Call{P: "src/github.com/ppknap/link/include/coost/dir", E: Create, Dir: true},
 			Receiver: Chans{ch[1], c},
 		},
 		// i=4
 		{
-			Event:    Call{P: "src/github.com/ppknap/link/include/coost/dir/another", E: Create, Dir: true},
+			Call:     Call{P: "src/github.com/ppknap/link/include/coost/dir/another", E: Create, Dir: true},
 			Receiver: Chans{ch[1], c},
 		},
 		// i=5
 		{
-			Event:    Call{P: "src/github.com/ppknap/link/include/coost/file", E: Create, Dir: false},
+			Call:     Call{P: "src/github.com/ppknap/link/include/coost/file", E: Create, Dir: false},
 			Receiver: Chans{ch[1]},
 		},
 		// i=6
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/mktree", E: Remove},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/mktree", E: Remove},
 			Receiver: Chans{ch[0]},
 		},
 		// i=7
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/rmtree", E: Create, Dir: true},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/rmtree", E: Create, Dir: true},
 			Receiver: Chans{c},
 		},
 	}

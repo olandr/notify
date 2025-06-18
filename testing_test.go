@@ -5,15 +5,12 @@
 package notify
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"sort"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -31,502 +28,6 @@ func TestMain(m *testing.M) {
 //     events
 //   - NOTIFY_TMP allows for changing location of temporary directory trees
 //     created for test purpose
-
-var wd string
-
-func init() {
-	var err error
-	if wd, err = os.Getwd(); err != nil {
-		panic("Getwd()=" + err.Error())
-	}
-}
-
-func timeout() time.Duration {
-	if s := os.Getenv("NOTIFY_TIMEOUT"); s != "" {
-		if t, err := time.ParseDuration(s); err == nil {
-			return t
-		}
-	}
-	return 2 * time.Second
-}
-
-func vfs() (string, string) {
-	if s := os.Getenv("NOTIFY_TMP"); s != "" {
-		return filepath.Split(s)
-	}
-	return "testdata", ""
-}
-
-func isDir(path string) bool {
-	r := path[len(path)-1]
-	return r == '\\' || r == '/'
-}
-
-func tmpcreateall(tmp string, path string) error {
-	isdir := isDir(path)
-	path = filepath.Join(tmp, filepath.FromSlash(path))
-	if isdir {
-		if err := os.MkdirAll(path, 0755); err != nil {
-			return err
-		}
-	} else {
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-			return err
-		}
-		f, err := os.Create(path)
-		if err != nil {
-			return err
-		}
-		if err := nonil(f.Sync(), f.Close()); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func tmpcreate(root, path string) (bool, error) {
-	isdir := isDir(path)
-	path = filepath.Join(root, filepath.FromSlash(path))
-	if isdir {
-		if err := os.Mkdir(path, 0755); err != nil {
-			return false, err
-		}
-	} else {
-		f, err := os.Create(path)
-		if err != nil {
-			return false, err
-		}
-		if err := nonil(f.Sync(), f.Close()); err != nil {
-			return false, err
-		}
-	}
-	return isdir, nil
-}
-
-func tmptree(root, list string) (string, error) {
-	f, err := os.Open(list)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	if root == "" {
-		if root, err = os.MkdirTemp(vfs()); err != nil {
-			return "", err
-		}
-	}
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		if err := tmpcreateall(root, scanner.Text()); err != nil {
-			return "", err
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-	return root, nil
-}
-
-func callern(n int) string {
-	_, file, line, ok := runtime.Caller(n)
-	if !ok {
-		return "<unknown>"
-	}
-	return filepath.Base(file) + ":" + strconv.Itoa(line)
-}
-
-func caller() string {
-	return callern(3)
-}
-
-type WCase struct {
-	Action func()
-	Events []EventInfo
-}
-
-func (cas WCase) String() string {
-	s := make([]string, 0, len(cas.Events))
-	for _, ei := range cas.Events {
-		s = append(s, "Event("+ei.Event().String()+")@"+filepath.FromSlash(ei.Path()))
-	}
-	return strings.Join(s, ", ")
-}
-
-type W struct {
-	Watcher watcher
-	C       chan EventInfo
-	Timeout time.Duration
-
-	t    *testing.T
-	root string
-}
-
-func newWatcherTest(t *testing.T, tree string) *W {
-	root, err := tmptree("", filepath.FromSlash(tree))
-	if err != nil {
-		t.Fatalf(`tmptree("", %q)=%v`, tree, err)
-	}
-	root, _, err = cleanpath(root)
-	if err != nil {
-		t.Fatalf(`cleanpath(%q)=%v`, root, err)
-	}
-	Sync()
-	return &W{
-		t:    t,
-		root: root,
-	}
-}
-
-func NewWatcherTest(t *testing.T, tree string, events ...Event) *W {
-	w := newWatcherTest(t, tree)
-	if len(events) == 0 {
-		events = []Event{Create, Remove, Write, Rename}
-	}
-	if rw, ok := w.watcher().(recursiveWatcher); ok {
-		if err := rw.RecursiveWatch(w.root, joinevents(events)); err != nil {
-			t.Fatalf("RecursiveWatch(%q, All)=%v", w.root, err)
-		}
-	} else {
-		fn := func(path string, fi os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if fi.IsDir() {
-				if err := w.watcher().Watch(path, joinevents(events)); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-		if err := filepath.Walk(w.root, fn); err != nil {
-			t.Fatalf("Walk(%q, fn)=%v", w.root, err)
-		}
-	}
-	drainall(w.C)
-	return w
-}
-
-func (w *W) clean(path string) string {
-	path, isrec, err := cleanpath(filepath.Join(w.root, path))
-	if err != nil {
-		w.Fatalf("cleanpath(%q)=%v", path, err)
-	}
-	if isrec {
-		path = path + "..."
-	}
-	return path
-}
-
-func (w *W) Fatal(v interface{}) {
-	w.t.Fatalf("%s: %v", caller(), v)
-}
-
-func (w *W) Fatalf(format string, v ...interface{}) {
-	w.t.Fatalf("%s: %s", caller(), fmt.Sprintf(format, v...))
-}
-
-func (w *W) Watch(path string, e Event) {
-	if err := w.watcher().Watch(w.clean(path), e); err != nil {
-		w.Fatalf("Watch(%s, %v)=%v", path, e, err)
-	}
-}
-
-func (w *W) Rewatch(path string, olde, newe Event) {
-	if err := w.watcher().Rewatch(w.clean(path), olde, newe); err != nil {
-		w.Fatalf("Rewatch(%s, %v, %v)=%v", path, olde, newe, err)
-	}
-}
-
-func (w *W) Unwatch(path string) {
-	if err := w.watcher().Unwatch(w.clean(path)); err != nil {
-		w.Fatalf("Unwatch(%s)=%v", path, err)
-	}
-}
-
-func (w *W) RecursiveWatch(path string, e Event) {
-	rw, ok := w.watcher().(recursiveWatcher)
-	if !ok {
-		w.Fatal("watcher does not implement recursive watching on this platform")
-	}
-	if err := rw.RecursiveWatch(w.clean(path), e); err != nil {
-		w.Fatalf("RecursiveWatch(%s, %v)=%v", path, e, err)
-	}
-}
-
-func (w *W) RecursiveRewatch(oldp, newp string, olde, newe Event) {
-	rw, ok := w.watcher().(recursiveWatcher)
-	if !ok {
-		w.Fatal("watcher does not implement recursive watching on this platform")
-	}
-	if err := rw.RecursiveRewatch(w.clean(oldp), w.clean(newp), olde, newe); err != nil {
-		w.Fatalf("RecursiveRewatch(%s, %s, %v, %v)=%v", oldp, newp, olde, newe, err)
-	}
-}
-
-func (w *W) RecursiveUnwatch(path string) {
-	rw, ok := w.watcher().(recursiveWatcher)
-	if !ok {
-		w.Fatal("watcher does not implement recursive watching on this platform")
-	}
-	if err := rw.RecursiveUnwatch(w.clean(path)); err != nil {
-		w.Fatalf("RecursiveUnwatch(%s)=%v", path, err)
-	}
-}
-
-func (w *W) initwatcher(buffer int) {
-	c := make(chan EventInfo, buffer)
-	w.Watcher = newWatcher(c)
-	w.C = c
-}
-
-func (w *W) watcher() watcher {
-	if w.Watcher == nil {
-		w.initwatcher(512)
-	}
-	return w.Watcher
-}
-
-func (w *W) c() chan EventInfo {
-	if w.C == nil {
-		w.initwatcher(512)
-	}
-	return w.C
-}
-
-func (w *W) timeout() time.Duration {
-	if w.Timeout != 0 {
-		return w.Timeout
-	}
-	return timeout()
-}
-
-func (w *W) Close() error {
-	defer os.RemoveAll(w.root)
-	if err := w.watcher().Close(); err != nil {
-		w.Fatalf("w.Watcher.Close()=%v", err)
-	}
-	return nil
-}
-
-func EqualEventInfo(want, got EventInfo) error {
-	if got.Event() != want.Event() {
-		return fmt.Errorf("want Event()=%v; got %v (path=%s)", want.Event(),
-			got.Event(), want.Path())
-	}
-	path := strings.TrimRight(filepath.FromSlash(want.Path()), `/\`)
-	if !strings.HasSuffix(got.Path(), path) {
-		return fmt.Errorf("want Path()=%s; got %s (event=%v)", path, got.Path(),
-			want.Event())
-	}
-	return nil
-}
-
-func HasEventInfo(want, got Event, p string) error {
-	if got&want != want {
-		return fmt.Errorf("want Event=%v; got %v (path=%s)", want,
-			got, p)
-	}
-	return nil
-}
-
-func EqualCall(want, got Call) error {
-	if want.F != got.F {
-		return fmt.Errorf("want F=%v; got %v (want.P=%q, got.P=%q)", want.F, got.F, want.P, got.P)
-	}
-	if got.E != want.E {
-		return fmt.Errorf("want E=%v; got %v (want.P=%q, got.P=%q)", want.E, got.E, want.P, got.P)
-	}
-	if got.NE != want.NE {
-		return fmt.Errorf("want NE=%v; got %v (want.P=%q, got.P=%q)", want.NE, got.NE, want.P, got.P)
-	}
-	if want.C != got.C {
-		return fmt.Errorf("want C=%p; got %p (want.P=%q, got.P=%q)", want.C, got.C, want.P, got.P)
-	}
-	if want := filepath.FromSlash(want.P); !strings.HasSuffix(got.P, want) {
-		return fmt.Errorf("want P=%s; got %s", want, got.P)
-	}
-	if want := filepath.FromSlash(want.NP); !strings.HasSuffix(got.NP, want) {
-		return fmt.Errorf("want NP=%s; got %s", want, got.NP)
-	}
-	return nil
-}
-
-func create(w *W, path string) WCase {
-	return WCase{
-		Action: func() {
-			isdir, err := tmpcreate(w.root, filepath.FromSlash(path))
-			if err != nil {
-				w.Fatalf("tmpcreate(%q, %q)=%v", w.root, path, err)
-			}
-			if isdir {
-				dbgprintf("[FS] os.Mkdir(%q)\n", path)
-			} else {
-				dbgprintf("[FS] os.Create(%q)\n", path)
-			}
-		},
-		Events: []EventInfo{
-			&Call{P: path, E: Create},
-		},
-	}
-}
-
-func remove(w *W, path string) WCase {
-	return WCase{
-		Action: func() {
-			if err := os.RemoveAll(filepath.Join(w.root, filepath.FromSlash(path))); err != nil {
-				w.Fatal(err)
-			}
-			dbgprintf("[FS] os.Remove(%q)\n", path)
-		},
-		Events: []EventInfo{
-			&Call{P: path, E: Remove},
-		},
-	}
-}
-
-func rename(w *W, oldpath, newpath string) WCase {
-	return WCase{
-		Action: func() {
-			err := os.Rename(filepath.Join(w.root, filepath.FromSlash(oldpath)),
-				filepath.Join(w.root, filepath.FromSlash(newpath)))
-			if err != nil {
-				w.Fatal(err)
-			}
-			dbgprintf("[FS] os.Rename(%q, %q)\n", oldpath, newpath)
-		},
-		Events: []EventInfo{
-			&Call{P: newpath, E: Rename},
-		},
-	}
-}
-
-func write(w *W, path string, p []byte) WCase {
-	return WCase{
-		Action: func() {
-			f, err := os.OpenFile(filepath.Join(w.root, filepath.FromSlash(path)),
-				os.O_WRONLY, 0644)
-			if err != nil {
-				w.Fatalf("OpenFile(%q)=%v", path, err)
-			}
-			if _, err := f.Write(p); err != nil {
-				w.Fatalf("Write(%q)=%v", path, err)
-			}
-			if err := nonil(f.Sync(), f.Close()); err != nil {
-				w.Fatalf("Sync(%q)/Close(%q)=%v", path, path, err)
-			}
-			dbgprintf("[FS] Write(%q)\n", path)
-		},
-		Events: []EventInfo{
-			&Call{P: path, E: Write},
-		},
-	}
-}
-
-func drainall(c chan EventInfo) (ei []EventInfo) {
-	time.Sleep(50 * time.Millisecond)
-	for {
-		select {
-		case e := <-c:
-			ei = append(ei, e)
-			runtime.Gosched()
-		default:
-			return
-		}
-	}
-}
-
-type WCaseFunc func(i int, cas WCase, ei EventInfo) error
-
-func (w *W) ExpectAnyFunc(cases []WCase, fn WCaseFunc) {
-	UpdateWait() // Wait some time before starting the test.
-Test:
-	for i, cas := range cases {
-		dbgprintf("ExpectAny: i=%d\n", i)
-		cas.Action()
-		Sync()
-		switch cas.Events {
-		case nil:
-			if ei := drainall(w.C); len(ei) != 0 {
-				w.Fatalf("unexpected dangling events: %v (i=%d)", ei, i)
-			}
-		default:
-			select {
-			case ei := <-w.C:
-				dbgprintf("received: path=%q, event=%v, sys=%v (i=%d)", ei.Path(),
-					ei.Event(), ei.Sys(), i)
-				for j, want := range cas.Events {
-					if err := EqualEventInfo(want, ei); err != nil {
-						dbgprint(err, j)
-						continue
-					}
-					if fn != nil {
-						if err := fn(i, cas, ei); err != nil {
-							w.Fatalf("ExpectAnyFunc(%d, %v)=%v", i, ei, err)
-						}
-					}
-					drainall(w.C) // TODO(rjeczalik): revisit
-					continue Test
-				}
-				w.Fatalf("ExpectAny received an event which does not match any of "+
-					"the expected ones (i=%d): want one of %v; got %v", i, cas.Events, ei)
-			case <-time.After(w.timeout()):
-				w.Fatalf("timed out after %v waiting for one of %v (i=%d)", w.timeout(),
-					cas.Events, i)
-			}
-			drainall(w.C) // TODO(rjeczalik): revisit
-		}
-	}
-}
-
-func (w *W) ExpectAny(cases []WCase) {
-	w.ExpectAnyFunc(cases, nil)
-}
-
-func (w *W) aggregate(ei []EventInfo, pf string) (evs map[string]Event) {
-	evs = make(map[string]Event)
-	for _, cas := range ei {
-		p := cas.Path()
-		if pf != "" {
-			p = filepath.Join(pf, p)
-		}
-		evs[p] |= cas.Event()
-	}
-	return
-}
-
-func (w *W) ExpectAllFunc(cases []WCase) {
-	UpdateWait() // Wait some time before starting the test.
-	for i, cas := range cases {
-		exp := w.aggregate(cas.Events, w.root)
-		dbgprintf("ExpectAll: i=%d\n", i)
-		cas.Action()
-		Sync()
-		got := w.aggregate(drainall(w.C), "")
-		for ep, ee := range exp {
-			ge, ok := got[ep]
-			if !ok {
-				w.Fatalf("missing events for %q (%v)", ep, ee)
-				continue
-			}
-			delete(got, ep)
-			if err := HasEventInfo(ee, ge, ep); err != nil {
-				w.Fatalf("ExpectAll received an event which does not match "+
-					"the expected ones for %q: want %v; got %v", ep, ee, ge)
-				continue
-			}
-		}
-		if len(got) != 0 {
-			w.Fatalf("ExpectAll received unexpected events: %v", got)
-		}
-	}
-}
-
-// ExpectAll requires all requested events to be send.
-// It does not require events to be send in the same order or in the same
-// chunks (e.g. NoteWrite and NoteExtend reported as independent events are
-// treated the same as one NoteWrite|NoteExtend event).
-func (w *W) ExpectAll(cases []WCase) {
-	w.ExpectAllFunc(cases)
-}
 
 // FuncType represents enums for Watcher interface.
 type FuncType string
@@ -619,68 +120,12 @@ func (cs CallSlice) Less(i, j int) bool { return cs[i].P < cs[j].P }
 func (cs CallSlice) Swap(i, j int)      { cs[i], cs[j] = cs[j], cs[i] }
 func (cs CallSlice) Sort()              { sort.Sort(cs) }
 
-// Spy is a mock for Watcher interface, which records every call.
-type Spy []Call
-
-func (s *Spy) Close() (_ error) { return }
-
-func (s *Spy) Watch(p string, e Event) (_ error) {
-	dbgprintf("%s: (*Spy).Watch(%q, %v)", caller(), p, e)
-	*s = append(*s, Call{F: FuncWatch, P: p, E: e})
-	return
-}
-
-func (s *Spy) Unwatch(p string) (_ error) {
-	dbgprintf("%s: (*Spy).Unwatch(%q)", caller(), p)
-	*s = append(*s, Call{F: FuncUnwatch, P: p})
-	return
-}
-
-func (s *Spy) Rewatch(p string, olde, newe Event) (_ error) {
-	dbgprintf("%s: (*Spy).Rewatch(%q, %v, %v)", caller(), p, olde, newe)
-	*s = append(*s, Call{F: FuncRewatch, P: p, E: olde, NE: newe})
-	return
-}
-
-func (s *Spy) RecursiveWatch(p string, e Event) (_ error) {
-	dbgprintf("%s: (*Spy).RecursiveWatch(%q, %v)", caller(), p, e)
-	*s = append(*s, Call{F: FuncRecursiveWatch, P: p, E: e})
-	return
-}
-
-func (s *Spy) RecursiveUnwatch(p string) (_ error) {
-	dbgprintf("%s: (*Spy).RecursiveUnwatch(%q)", caller(), p)
-	*s = append(*s, Call{F: FuncRecursiveUnwatch, P: p})
-	return
-}
-
-func (s *Spy) RecursiveRewatch(oldp, newp string, olde, newe Event) (_ error) {
-	dbgprintf("%s: (*Spy).RecursiveRewatch(%q, %q, %v, %v)", caller(), oldp, newp, olde, newe)
-	*s = append(*s, Call{F: FuncRecursiveRewatch, P: oldp, NP: newp, E: olde, NE: newe})
-	return
-}
-
-type RCase struct {
-	Call   Call
-	Record []Call
-}
-
-type TCase struct {
-	Event    Call
-	Receiver Chans
-}
-
-type NCase struct {
-	Event    WCase
-	Receiver Chans
-}
-
 type N struct {
 	Timeout time.Duration
 
 	t        *testing.T
 	tree     tree
-	w        *W
+	w        *MockWatcher
 	spy      *Spy
 	c        chan EventInfo
 	j        int // spy offset
@@ -768,7 +213,7 @@ func (n *N) timeout() time.Duration {
 	return n.w.timeout()
 }
 
-func (n *N) W() *W {
+func (n *N) W() *MockWatcher {
 	return n.w
 }
 
@@ -825,7 +270,7 @@ func (n *N) expectDry(ch Chans, i int) {
 	}
 }
 
-func (n *N) ExpectRecordedCalls(cases []RCase) {
+func (n *N) ExpectRecordedCalls(cases []Case) {
 	for i, cas := range cases {
 		dbgprintf("ExpectRecordedCalls: i=%d\n", i)
 		n.Call(cas.Call)
@@ -886,12 +331,12 @@ func (n *N) abs(rel Call) *Call {
 	return &rel
 }
 
-func (n *N) ExpectTreeEvents(cases []TCase, all Chans) {
+func (n *N) ExpectTreeEvents(cases []Case, all Chans) {
 	for i, cas := range cases {
 		dbgprintf("ExpectTreeEvents: i=%d\n", i)
 		// Ensure there're no dangling event left by previous test-case.
 		n.expectDry(all, i)
-		n.c <- n.abs(cas.Event)
+		n.c <- n.abs(cas.Call)
 		switch cas.Receiver {
 		case nil:
 			n.expectDry(all, i)
@@ -900,13 +345,13 @@ func (n *N) ExpectTreeEvents(cases []TCase, all Chans) {
 			select {
 			case collected := <-ch:
 				for _, got := range collected {
-					if err := EqualEventInfo(&cas.Event, got); err != nil {
+					if err := EqualEventInfo(&cas.Call, got); err != nil {
 						n.w.Fatalf("%s: %s (i=%d)", caller(), err, i)
 					}
 				}
 			case <-time.After(n.timeout()):
 				n.w.Fatalf("ExpectTreeEvents has timed out after %v waiting for"+
-					" %v on %s (i=%d)", n.timeout(), cas.Event.E, cas.Event.P, i)
+					" %v on %s (i=%d)", n.timeout(), cas.Call.E, cas.Call.P, i)
 			}
 
 		}
@@ -914,7 +359,7 @@ func (n *N) ExpectTreeEvents(cases []TCase, all Chans) {
 	n.expectDry(all, -1)
 }
 
-func (n *N) ExpectNotifyEvents(cases []NCase, all Chans) {
+func (n *N) ExpectNotifyEvents(cases []Case, all Chans) {
 	UpdateWait() // Wait some time before starting the test.
 	for i, cas := range cases {
 		dbgprintf("ExpectNotifyEvents: i=%d\n", i)

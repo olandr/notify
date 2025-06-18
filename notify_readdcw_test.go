@@ -16,7 +16,7 @@ func TestNotifySystemSpecificEvent(t *testing.T) {
 
 	n.Watch("src/github.com/rjeczalik/fs", ch[0], FileNotifyChangeFileName, FileNotifyChangeSize)
 
-	cases := []NCase{
+	cases := []Case{
 		{
 			Event:    rremove(n.W(), "src/github.com/rjeczalik/fs/fs.go"),
 			Receiver: Chans{ch[0]},
@@ -47,7 +47,7 @@ func TestNotifySystemAndGlobalMix(t *testing.T) {
 	n.Watch("src/github.com/rjeczalik/fs", ch[1], FileNotifyChangeFileName)
 	n.Watch("src/github.com/rjeczalik/fs", ch[2], FileNotifyChangeDirName)
 
-	cases := []NCase{
+	cases := []Case{
 		{
 			Event:    rcreate(n.W(), "src/github.com/rjeczalik/fs/.main.cc.swr"),
 			Receiver: Chans{ch[0], ch[1]},

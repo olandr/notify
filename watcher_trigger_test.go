@@ -13,7 +13,7 @@ func TestWatcherCreateOnly(t *testing.T) {
 	w := NewWatcherTest(t, "testdata/vfs.txt", Create)
 	defer w.Close()
 
-	cases := [...]WCase{
+	cases := [...]FileOperation{
 		create(w, "dir/"),
 		create(w, "dir2/"),
 	}

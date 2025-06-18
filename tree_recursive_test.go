@@ -11,7 +11,7 @@ func TestRecursiveTree(t *testing.T) {
 
 	ch := NewChans(5)
 
-	watches := [...]RCase{
+	watches := [...]Case{
 		// i=0
 		{
 			Call: Call{
@@ -292,92 +292,92 @@ func TestRecursiveTree(t *testing.T) {
 
 	n.ExpectRecordedCalls(watches[:])
 
-	events := [...]TCase{
+	events := [...]Case{
 		// i=0
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/fs.go", E: Rename},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/fs.go", E: Rename},
 			Receiver: Chans{ch[2], ch[3]},
 		},
 		// i=1
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/fs.go", E: Create},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/fs.go", E: Create},
 			Receiver: Chans{ch[0]},
 		},
 		// i=2
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/fs.go/file", E: Create},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/fs.go/file", E: Create},
 			Receiver: Chans{ch[0]},
 		},
 		// i=3
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs", E: Rename},
+			Call:     Call{P: "src/github.com/rjeczalik/fs", E: Rename},
 			Receiver: Chans{ch[2]},
 		},
 		// i=4
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/fs_test.go", E: Rename},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/fs_test.go", E: Rename},
 			Receiver: Chans{ch[2]},
 		},
 		// i=5
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/mktree/main.go", E: Remove},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/mktree/main.go", E: Remove},
 			Receiver: Chans{ch[1]},
 		},
 		// i=6
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/gotree", E: Remove},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/gotree", E: Remove},
 			Receiver: Chans{ch[1], ch[2]},
 		},
 		// i=7
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd", E: Remove},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd", E: Remove},
 			Receiver: Chans{ch[1]},
 		},
 		// i=8
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/fs.go/file", E: Write},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/fs.go/file", E: Write},
 			Receiver: nil,
 		},
 		// i=9
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/fs.go/file", E: Write},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/fs.go/file", E: Write},
 			Receiver: nil,
 		},
 		// i=10
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs", E: Remove},
+			Call:     Call{P: "src/github.com/rjeczalik/fs", E: Remove},
 			Receiver: nil,
 		},
 		// i=11
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd", E: Rename},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd", E: Rename},
 			Receiver: Chans{ch[2]},
 		},
 		// i=12
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/mktree/main.go", E: Write},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/mktree/main.go", E: Write},
 			Receiver: nil,
 		},
 		// i=13
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/gotree", E: Rename},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/gotree", E: Rename},
 			Receiver: nil,
 		},
 		// i=14
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/file", E: Rename},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/file", E: Rename},
 			Receiver: nil,
 		},
 		// i=15
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/fs.go", E: Rename},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/fs.go", E: Rename},
 			Receiver: Chans{ch[2], ch[3]},
 		},
 	}
 
 	n.ExpectTreeEvents(events[:], ch)
 
-	stops := [...]RCase{
+	stops := [...]Case{
 		// i=0
 		{
 			Call: Call{
@@ -411,7 +411,7 @@ func TestRecursiveTreeWatchInactiveMerge(t *testing.T) {
 
 	ch := NewChans(1)
 
-	watches := [...]RCase{
+	watches := [...]Case{
 		// i=0
 		{
 			Call: Call{
@@ -450,25 +450,25 @@ func TestRecursiveTreeWatchInactiveMerge(t *testing.T) {
 
 	n.ExpectRecordedCalls(watches[:])
 
-	events := [...]TCase{
+	events := [...]Case{
 		// i=0
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/.fs.go.swp", E: Create},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/.fs.go.swp", E: Create},
 			Receiver: Chans{ch[0]},
 		},
 		// i=1
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/.fs.go.swp", E: Remove},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/.fs.go.swp", E: Remove},
 			Receiver: nil,
 		},
 		// i=2
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs", E: Remove},
+			Call:     Call{P: "src/github.com/rjeczalik/fs", E: Remove},
 			Receiver: nil,
 		},
 		// i=3
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/cmd/gotree/main.go", E: Remove},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/cmd/gotree/main.go", E: Remove},
 			Receiver: Chans{ch[0]},
 		},
 	}
@@ -483,7 +483,7 @@ func TestRecursiveTree_Windows(t *testing.T) {
 
 	ch := NewChans(1)
 
-	watches := [...]RCase{
+	watches := [...]Case{
 		// i=0
 		{
 			Call: Call{
@@ -504,15 +504,15 @@ func TestRecursiveTree_Windows(t *testing.T) {
 
 	n.ExpectRecordedCalls(watches[:])
 
-	events := [...]TCase{
+	events := [...]Case{
 		// i=0
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs", E: ChangeFileName},
+			Call:     Call{P: "src/github.com/rjeczalik/fs", E: ChangeFileName},
 			Receiver: Chans{ch[0]},
 		},
 		// i=1
 		{
-			Event:    Call{P: "src/github.com/rjeczalik/fs/fs.go", E: ChangeFileName},
+			Call:     Call{P: "src/github.com/rjeczalik/fs/fs.go", E: ChangeFileName},
 			Receiver: Chans{ch[0]},
 		},
 	}

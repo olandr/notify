@@ -28,7 +28,7 @@ func TestDefaultTree(t *testing.T) {
 		n.Watch("src/github.com/pblaszczyk/qttu/...", ch[1], Create)
 		n.Watch("src/github.com/rjeczalik/fs/cmd/...", ch[2], Remove)
 
-		cases := []NCase{
+		cases := []Case{
 			// i=0
 			{
 				Event:    write(n.W(), "src/github.com/rjeczalik/fs/fs.go", []byte("XD")),
@@ -80,7 +80,7 @@ func TestDefaultTree(t *testing.T) {
 
 		n.Call(stops[:]...)
 
-		cases = []NCase{
+		cases = []Case{
 			// i=0
 			{
 				Event:    write(n.W(), "src/github.com/rjeczalik/fs/fs.go", []byte("XD")),

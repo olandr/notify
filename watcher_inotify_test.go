@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func icreate(w *W, path string) WCase {
+func icreate(w *MockWatcher, path string) FileOperation {
 	cas := create(w, path)
 	cas.Events = append(cas.Events,
 		&Call{P: path, E: InCreate},
@@ -21,7 +21,7 @@ func icreate(w *W, path string) WCase {
 	return cas
 }
 
-func iremove(w *W, path string) WCase {
+func iremove(w *MockWatcher, path string) FileOperation {
 	cas := remove(w, path)
 	cas.Events = append(cas.Events,
 		&Call{P: path, E: InDelete},
@@ -29,8 +29,8 @@ func iremove(w *W, path string) WCase {
 	return cas
 }
 
-func iopen(w *W, path string) WCase {
-	return WCase{
+func iopen(w *MockWatcher, path string) FileOperation {
+	return FileOperation{
 		Action: func() {
 			f, err := os.OpenFile(filepath.Join(w.root, path), os.O_RDWR, 0644)
 			if err != nil {
@@ -48,8 +48,8 @@ func iopen(w *W, path string) WCase {
 	}
 }
 
-func iread(w *W, path string, p []byte) WCase {
-	return WCase{
+func iread(w *MockWatcher, path string, p []byte) FileOperation {
+	return FileOperation{
 		Action: func() {
 			f, err := os.OpenFile(filepath.Join(w.root, path), os.O_RDWR, 0644)
 			if err != nil {
@@ -71,7 +71,7 @@ func iread(w *W, path string, p []byte) WCase {
 	}
 }
 
-func iwrite(w *W, path string, p []byte) WCase {
+func iwrite(w *MockWatcher, path string, p []byte) FileOperation {
 	cas := write(w, path, p)
 	path = cas.Events[0].Path()
 	cas.Events = append(cas.Events,
@@ -83,9 +83,9 @@ func iwrite(w *W, path string, p []byte) WCase {
 	return cas
 }
 
-func irename(w *W, path string) WCase {
+func irename(w *MockWatcher, path string) FileOperation {
 	const ext = ".notify"
-	return WCase{
+	return FileOperation{
 		Action: func() {
 			file := filepath.Join(w.root, path)
 			if err := os.Rename(file, file+ext); err != nil {
@@ -121,7 +121,7 @@ func TestWatcherInotify(t *testing.T) {
 	w := NewWatcherTest(t, "testdata/vfs.txt", events...)
 	defer w.Close()
 
-	cases := [...]WCase{
+	cases := [...]FileOperation{
 		iopen(w, "src/github.com/rjeczalik/fs/fs.go"),
 		iwrite(w, "src/github.com/rjeczalik/fs/fs.go", []byte("XD")),
 		iread(w, "src/github.com/rjeczalik/fs/fs.go", []byte("XD")),

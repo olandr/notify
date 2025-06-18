@@ -4,116 +4,150 @@
 
 package notify
 
-import "sync"
+import (
+	"context"
+	"sync"
+)
 
 // nonrecursiveTree TODO(rjeczalik)
 type nonrecursiveTree struct {
-	rw   sync.RWMutex // protects root
-	root root
-	w    watcher
-	c    chan EventInfo
-	rec  chan EventInfo
+	rw     sync.RWMutex // protects root
+	root   root
+	w      watcher
+	c      chan EventInfo
+	rec    chan EventInfo
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 // newNonrecursiveTree TODO(rjeczalik)
 func newNonrecursiveTree(w watcher, c, rec chan EventInfo) *nonrecursiveTree {
+	ctx, cancel := context.WithCancel(context.Background())
 	if rec == nil {
 		rec = make(chan EventInfo, buffer)
 	}
 	t := &nonrecursiveTree{
-		root: root{nd: newnode("")},
-		w:    w,
-		c:    c,
-		rec:  rec,
+		root:   root{nd: newnode("")},
+		w:      w,
+		c:      c,
+		rec:    rec,
+		ctx:    ctx,
+		cancel: cancel,
+		wg:     sync.WaitGroup{},
 	}
-	go t.dispatch(c)
-	go t.internal(rec)
+	t.wg.Add(1)
+	go func() {
+		defer t.wg.Done()
+		t.dispatch(c)
+	}()
+	t.wg.Add(1)
+	go func() {
+		defer t.wg.Done()
+		go t.internal(rec)
+	}()
 	return t
 }
 
 // dispatch TODO(rjeczalik)
 func (t *nonrecursiveTree) dispatch(c <-chan EventInfo) {
-	for ei := range c {
-		dbgprintf("dispatching %v on %q", ei.Event(), ei.Path())
-		go func(ei EventInfo) {
-			var nd node
-			var isrec bool
-			dir, base := split(ei.Path())
-			fn := func(it node, isbase bool) error {
-				isrec = isrec || it.Watch.IsRecursive()
-				if isbase {
-					nd = it
-				} else {
-					it.Watch.Dispatch(ei, recursive)
+	for {
+		select {
+		case <-t.ctx.Done():
+			return
+		case ei, ok := <-c:
+			if !ok {
+				return
+			}
+			dbgprintf("dispatching %v on %q", ei.Event(), ei.Path())
+			go func(ei EventInfo) {
+				var nd node
+				var isrec bool
+				dir, base := split(ei.Path())
+				fn := func(it node, isbase bool) error {
+					isrec = isrec || it.Watch.IsRecursive()
+					if isbase {
+						nd = it
+					} else {
+						it.Watch.Dispatch(ei, recursive)
+					}
+					return nil
 				}
-				return nil
-			}
-			t.rw.RLock()
-			// Notify recursive watchpoints found on the path.
-			if err := t.root.WalkPath(dir, fn); err != nil {
-				dbgprint("dispatch did not reach leaf:", err)
-				t.rw.RUnlock()
-				return
-			}
-			// Notify parent watchpoint.
-			nd.Watch.Dispatch(ei, 0)
-			isrec = isrec || nd.Watch.IsRecursive()
-			// If leaf watchpoint exists, notify it.
-			if nd, ok := nd.Child[base]; ok {
-				isrec = isrec || nd.Watch.IsRecursive()
+				t.rw.RLock()
+				// Notify recursive watchpoints found on the path.
+				if err := t.root.WalkPath(dir, fn); err != nil {
+					dbgprint("dispatch did not reach leaf:", err)
+					t.rw.RUnlock()
+					return
+				}
+				// Notify parent watchpoint.
 				nd.Watch.Dispatch(ei, 0)
-			}
-			t.rw.RUnlock()
-			// If the event describes newly leaf directory created within
-			if !isrec || ei.Event()&(Create|Remove) == 0 {
-				return
-			}
-			if ok, err := ei.(isDirer).isDir(); !ok || err != nil {
-				return
-			}
-			t.rec <- ei
-		}(ei)
+				isrec = isrec || nd.Watch.IsRecursive()
+				// If leaf watchpoint exists, notify it.
+				if nd, ok := nd.Child[base]; ok {
+					isrec = isrec || nd.Watch.IsRecursive()
+					nd.Watch.Dispatch(ei, 0)
+				}
+				t.rw.RUnlock()
+				// If the event describes newly leaf directory created within
+				if !isrec || ei.Event()&(Create|Remove) == 0 {
+					return
+				}
+				if ok, err := ei.(isDirer).isDir(); !ok || err != nil {
+					return
+				}
+				t.rec <- ei
+			}(ei)
+		}
 	}
 }
 
 // internal TODO(rjeczalik)
 func (t *nonrecursiveTree) internal(rec <-chan EventInfo) {
-	for ei := range rec {
-		t.rw.Lock()
-		if ei.Event() == Remove {
-			nd, err := t.root.Get(ei.Path())
-			if err != nil {
+	for {
+		select {
+		case <-t.ctx.Done():
+			return
+		case ei, ok := <-rec:
+			if !ok {
+				return
+			}
+			t.rw.Lock()
+			if ei.Event() == Remove {
+				nd, err := t.root.Get(ei.Path())
+				if err != nil {
+					t.rw.Unlock()
+					continue
+				}
+				t.walkWatchpoint(nd, func(_ Event, nd node) error {
+					t.w.Unwatch(nd.Name)
+					return nil
+				})
+				t.root.Del(ei.Path())
 				t.rw.Unlock()
 				continue
 			}
-			t.walkWatchpoint(nd, func(_ Event, nd node) error {
-				t.w.Unwatch(nd.Name)
+			var nd node
+			var eset = internal
+			t.root.WalkPath(ei.Path(), func(it node, _ bool) error {
+				if e := it.Watch[t.rec]; e != 0 && e > eset {
+					eset = e
+				}
+				nd = it
 				return nil
 			})
-			t.root.Del(ei.Path())
-			t.rw.Unlock()
-			continue
-		}
-		var nd node
-		var eset = internal
-		t.root.WalkPath(ei.Path(), func(it node, _ bool) error {
-			if e := it.Watch[t.rec]; e != 0 && e > eset {
-				eset = e
+			if eset == internal {
+				t.rw.Unlock()
+				continue
 			}
-			nd = it
-			return nil
-		})
-		if eset == internal {
+			if ei.Path() != nd.Name {
+				nd = nd.Add(ei.Path())
+			}
+			err := nd.AddDir(t.recFunc(eset), nil)
 			t.rw.Unlock()
-			continue
-		}
-		if ei.Path() != nd.Name {
-			nd = nd.Add(ei.Path())
-		}
-		err := nd.AddDir(t.recFunc(eset), nil)
-		t.rw.Unlock()
-		if err != nil {
-			dbgprintf("internal(%p) error: %v", rec, err)
+			if err != nil {
+				dbgprintf("internal(%p) error: %v", rec, err)
+			}
 		}
 	}
 }
@@ -305,7 +339,10 @@ func (t *nonrecursiveTree) Stop(c chan<- EventInfo) {
 
 // Close TODO(rjeczalik)
 func (t *nonrecursiveTree) Close() error {
+	t.cancel()
 	err := t.w.Close()
 	close(t.c)
+	close(t.rec)
+	t.wg.Wait()
 	return err
 }

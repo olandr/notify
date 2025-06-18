@@ -90,3 +90,4 @@ Session.vim
 ### JetBrains files ###
 .idea/
 *.iml
+testdata/

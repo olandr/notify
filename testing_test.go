@@ -16,7 +16,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"go.uber.org/goleak"
 )
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
 
 // NOTE(rjeczalik): some useful environment variables:
 //
@@ -672,13 +678,12 @@ type NCase struct {
 type N struct {
 	Timeout time.Duration
 
-	t    *testing.T
-	tree tree
-	w    *W
-	spy  *Spy
-	c    chan EventInfo
-	j    int // spy offset
-
+	t        *testing.T
+	tree     tree
+	w        *W
+	spy      *Spy
+	c        chan EventInfo
+	j        int // spy offset
 	realroot string
 }
 

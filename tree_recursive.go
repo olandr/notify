@@ -4,7 +4,10 @@
 
 package notify
 
-import "sync"
+import (
+	"context"
+	"sync"
+)
 
 // watchAdd TODO(rjeczalik)
 func watchAdd(nd node, c chan<- EventInfo, e Event) eventDiff {
@@ -103,52 +106,71 @@ type recursiveTree struct {
 		watcher
 		recursiveWatcher
 	}
-	c chan EventInfo
+	c      chan EventInfo
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 // newRecursiveTree TODO(rjeczalik)
 func newRecursiveTree(w recursiveWatcher, c chan EventInfo) *recursiveTree {
+	ctx, cancel := context.WithCancel(context.Background())
 	t := &recursiveTree{
 		root: root{nd: newnode("")},
 		w: struct {
 			watcher
 			recursiveWatcher
 		}{w.(watcher), w},
-		c: c,
+		c:      c,
+		ctx:    ctx,
+		cancel: cancel,
+		wg:     sync.WaitGroup{},
 	}
-	go t.dispatch()
+	t.wg.Add(1)
+	go func() {
+		defer t.wg.Done()
+		t.dispatch()
+	}()
 	return t
 }
 
 // dispatch TODO(rjeczalik)
 func (t *recursiveTree) dispatch() {
-	for ei := range t.c {
-		dbgprintf("dispatching %v on %q", ei.Event(), ei.Path())
-		go func(ei EventInfo) {
-			nd, ok := node{}, false
-			dir, base := split(ei.Path())
-			fn := func(it node, isbase bool) error {
-				if isbase {
-					nd = it
-				} else {
-					it.Watch.Dispatch(ei, recursive)
-				}
-				return nil
-			}
-			t.rw.RLock()
-			defer t.rw.RUnlock()
-			// Notify recursive watchpoints found on the path.
-			if err := t.root.WalkPath(dir, fn); err != nil {
-				dbgprint("dispatch did not reach leaf:", err)
+	for {
+		select {
+		case <-t.ctx.Done():
+			return
+		case ei, ok := <-t.c:
+			if !ok {
 				return
 			}
-			// Notify parent watchpoint.
-			nd.Watch.Dispatch(ei, 0)
-			// If leaf watchpoint exists, notify it.
-			if nd, ok = nd.Child[base]; ok {
+			dbgprintf("dispatching %v on %q", ei.Event(), ei.Path())
+			go func(ei EventInfo) {
+				nd, ok := node{}, false
+				dir, base := split(ei.Path())
+				fn := func(it node, isbase bool) error {
+					if isbase {
+						nd = it
+					} else {
+						it.Watch.Dispatch(ei, recursive)
+					}
+					return nil
+				}
+				t.rw.RLock()
+				defer t.rw.RUnlock()
+				// Notify recursive watchpoints found on the path.
+				if err := t.root.WalkPath(dir, fn); err != nil {
+					dbgprint("dispatch did not reach leaf:", err)
+					return
+				}
+				// Notify parent watchpoint.
 				nd.Watch.Dispatch(ei, 0)
-			}
-		}(ei)
+				// If leaf watchpoint exists, notify it.
+				if nd, ok = nd.Child[base]; ok {
+					nd.Watch.Dispatch(ei, 0)
+				}
+			}(ei)
+		}
 	}
 }
 
@@ -349,7 +371,9 @@ func (t *recursiveTree) Stop(c chan<- EventInfo) {
 
 // Close TODO(rjeczalik)
 func (t *recursiveTree) Close() error {
+	t.cancel()
 	err := t.w.Close()
 	close(t.c)
+	t.wg.Wait()
 	return err
 }

@@ -14,9 +14,41 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/brianvoe/gofakeit/v6"
 )
 
 var wd string
+
+func generateDirs(n int) []string {
+	var sb strings.Builder
+	var ret []string
+	for range n {
+		for level := n; level > 0; level-- {
+			sb.WriteString(fmt.Sprintf("/"))
+			sb.WriteString(fmt.Sprintf("%s", gofakeit.LetterN(6)))
+		}
+		ret = append(ret, generateFakeFileAtDestination(true, sb.String()))
+	}
+	return ret
+}
+
+func generateFakeFileAtRandomDest(is_dir bool, level int) string {
+	var sb strings.Builder
+	for range level {
+		sb.WriteString(fmt.Sprintf("/"))
+		sb.WriteString(fmt.Sprintf("%s", gofakeit.LetterN(6)))
+	}
+	return generateFakeFileAtDestination(is_dir, sb.String())
+}
+
+func generateFakeFileAtDestination(is_dir bool, destination string) string {
+	name := gofakeit.LetterN(6)
+	if !is_dir {
+		name = fmt.Sprintf("%v.%v", name, gofakeit.FileExtension())
+	}
+	return fmt.Sprintf("%v/%v", destination, name)
+}
 
 func init() {
 	var err error
@@ -66,6 +98,17 @@ func tmpcreate(root, path string) (bool, error) {
 	return isdir, nil
 }
 
+func randomtree(root string) (string, error) {
+	var err error
+	if root == "" {
+		if root, err = os.MkdirTemp(testdata_destination()); err != nil {
+			return "", err
+		}
+	}
+
+	return root, nil
+}
+
 func tmptree(root, list string) (string, error) {
 	f, err := os.Open(list)
 	if err != nil {
@@ -73,7 +116,7 @@ func tmptree(root, list string) (string, error) {
 	}
 	defer f.Close()
 	if root == "" {
-		if root, err = os.MkdirTemp(vfs()); err != nil {
+		if root, err = os.MkdirTemp(testdata_destination()); err != nil {
 			return "", err
 		}
 	}
@@ -110,7 +153,7 @@ func timeout() time.Duration {
 	return 2 * time.Second
 }
 
-func vfs() (string, string) {
+func testdata_destination() (string, string) {
 	if s := os.Getenv("NOTIFY_TMP"); s != "" {
 		return filepath.Split(s)
 	}

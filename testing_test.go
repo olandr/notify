@@ -90,8 +90,7 @@ func (c Chans) Drain() (ei []EventInfo) {
 	return
 }
 
-// Call represents single call to Watcher issued by the tree
-// and recorded by a spy Watcher mock.
+// Call represents single call to Watcher issued by the tree and is recorded by a FakeWatcherCall.
 type Call struct {
 	F   FuncType       // denotes type of function to call, for both watcher and notifier interface
 	C   chan EventInfo // user channel being an argument to either Watch or Stop function
@@ -126,7 +125,7 @@ type N struct {
 	t        *testing.T
 	tree     tree
 	w        *MockWatcher
-	spy      *Spy
+	spy      *FakeWatcherCalls
 	c        chan EventInfo
 	j        int // spy offset
 	realroot string
@@ -148,7 +147,7 @@ func newN(t *testing.T, tree string) *N {
 func newTreeN(t *testing.T, tree string) *N {
 	c := make(chan EventInfo, buffer)
 	n := newN(t, tree)
-	n.spy = &Spy{}
+	n.spy = &FakeWatcherCalls{}
 	n.w.Watcher = n.spy
 	n.w.C = c
 	n.c = c
@@ -156,6 +155,7 @@ func newTreeN(t *testing.T, tree string) *N {
 }
 
 func NewNotifyTest(t *testing.T, tree string) *N {
+	fmt.Printf("func NewNotifyTest(t *testing.T, tree string) *N {")
 	n := newN(t, tree)
 	if rw, ok := n.w.watcher().(recursiveWatcher); ok {
 		n.tree = newRecursiveTree(rw, n.w.c())

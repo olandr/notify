@@ -13,47 +13,48 @@ import (
 	"time"
 )
 
-// Spy is a mock for Watcher interface, which records every call.
-type Spy []Call
+// FakeWatcherCalls is a helping struct that implements the Watcher interace, but keeps everything for testing purposes.
+type FakeWatcherCalls []Call
 
-func (s *Spy) Close() (_ error) { return }
+func (s *FakeWatcherCalls) Close() (_ error) { return }
 
-func (s *Spy) Watch(p string, e Event) (_ error) {
-	dbgprintf("%s: (*Spy).Watch(%q, %v)", caller(), p, e)
+func (s *FakeWatcherCalls) Watch(p string, e Event) (_ error) {
+	dbgprintf("%s: (*FakeWatcherCalls).Watch(%q, %v)", caller(), p, e)
 	*s = append(*s, Call{F: FuncWatch, P: p, E: e})
 	return
 }
 
-func (s *Spy) Unwatch(p string) (_ error) {
-	dbgprintf("%s: (*Spy).Unwatch(%q)", caller(), p)
+func (s *FakeWatcherCalls) Unwatch(p string) (_ error) {
+	dbgprintf("%s: (*FakeWatcherCalls).Unwatch(%q)", caller(), p)
 	*s = append(*s, Call{F: FuncUnwatch, P: p})
 	return
 }
 
-func (s *Spy) Rewatch(p string, olde, newe Event) (_ error) {
-	dbgprintf("%s: (*Spy).Rewatch(%q, %v, %v)", caller(), p, olde, newe)
+func (s *FakeWatcherCalls) Rewatch(p string, olde, newe Event) (_ error) {
+	dbgprintf("%s: (*FakeWatcherCalls).Rewatch(%q, %v, %v)", caller(), p, olde, newe)
 	*s = append(*s, Call{F: FuncRewatch, P: p, E: olde, NE: newe})
 	return
 }
 
-func (s *Spy) RecursiveWatch(p string, e Event) (_ error) {
-	dbgprintf("%s: (*Spy).RecursiveWatch(%q, %v)", caller(), p, e)
+func (s *FakeWatcherCalls) RecursiveWatch(p string, e Event) (_ error) {
+	dbgprintf("%s: (*FakeWatcherCalls).RecursiveWatch(%q, %v)", caller(), p, e)
 	*s = append(*s, Call{F: FuncRecursiveWatch, P: p, E: e})
 	return
 }
 
-func (s *Spy) RecursiveUnwatch(p string) (_ error) {
-	dbgprintf("%s: (*Spy).RecursiveUnwatch(%q)", caller(), p)
+func (s *FakeWatcherCalls) RecursiveUnwatch(p string) (_ error) {
+	dbgprintf("%s: (*FakeWatcherCalls).RecursiveUnwatch(%q)", caller(), p)
 	*s = append(*s, Call{F: FuncRecursiveUnwatch, P: p})
 	return
 }
 
-func (s *Spy) RecursiveRewatch(oldp, newp string, olde, newe Event) (_ error) {
-	dbgprintf("%s: (*Spy).RecursiveRewatch(%q, %q, %v, %v)", caller(), oldp, newp, olde, newe)
+func (s *FakeWatcherCalls) RecursiveRewatch(oldp, newp string, olde, newe Event) (_ error) {
+	dbgprintf("%s: (*FakeWatcherCalls).RecursiveRewatch(%q, %q, %v, %v)", caller(), oldp, newp, olde, newe)
 	*s = append(*s, Call{F: FuncRecursiveRewatch, P: oldp, NP: newp, E: olde, NE: newe})
 	return
 }
 
+// MockWatcher is a mock for Watcher interface.
 type MockWatcher struct {
 	Watcher watcher
 	C       chan EventInfo
@@ -70,25 +71,28 @@ func (w *MockWatcher) Close() error {
 	}
 	return nil
 }
-func (w *MockWatcher) Watch(path string, e Event) {
+func (w *MockWatcher) Watch(path string, e Event) error {
 	if err := w.watcher().Watch(w.clean(path), e); err != nil {
 		w.Fatalf("Watch(%s, %v)=%v", path, e, err)
 	}
+	return nil
 }
 
-func (w *MockWatcher) Unwatch(path string) {
+func (w *MockWatcher) Unwatch(path string) error {
 	if err := w.watcher().Unwatch(w.clean(path)); err != nil {
 		w.Fatalf("Unwatch(%s)=%v", path, err)
 	}
+	return nil
 }
 
-func (w *MockWatcher) Rewatch(path string, olde, newe Event) {
+func (w *MockWatcher) Rewatch(path string, olde, newe Event) error {
 	if err := w.watcher().Rewatch(w.clean(path), olde, newe); err != nil {
 		w.Fatalf("Rewatch(%s, %v, %v)=%v", path, olde, newe, err)
 	}
+	return nil
 }
 
-func (w *MockWatcher) RecursiveWatch(path string, e Event) {
+func (w *MockWatcher) RecursiveWatch(path string, e Event) error {
 	rw, ok := w.watcher().(recursiveWatcher)
 	if !ok {
 		w.Fatal("watcher does not implement recursive watching on this platform")
@@ -96,9 +100,10 @@ func (w *MockWatcher) RecursiveWatch(path string, e Event) {
 	if err := rw.RecursiveWatch(w.clean(path), e); err != nil {
 		w.Fatalf("RecursiveWatch(%s, %v)=%v", path, e, err)
 	}
+	return nil
 }
 
-func (w *MockWatcher) RecursiveUnwatch(path string) {
+func (w *MockWatcher) RecursiveUnwatch(path string) error {
 	rw, ok := w.watcher().(recursiveWatcher)
 	if !ok {
 		w.Fatal("watcher does not implement recursive watching on this platform")
@@ -106,8 +111,9 @@ func (w *MockWatcher) RecursiveUnwatch(path string) {
 	if err := rw.RecursiveUnwatch(w.clean(path)); err != nil {
 		w.Fatalf("RecursiveUnwatch(%s)=%v", path, err)
 	}
+	return nil
 }
-func (w *MockWatcher) RecursiveRewatch(oldp, newp string, olde, newe Event) {
+func (w *MockWatcher) RecursiveRewatch(oldp, newp string, olde, newe Event) error {
 	rw, ok := w.watcher().(recursiveWatcher)
 	if !ok {
 		w.Fatal("watcher does not implement recursive watching on this platform")
@@ -115,6 +121,7 @@ func (w *MockWatcher) RecursiveRewatch(oldp, newp string, olde, newe Event) {
 	if err := rw.RecursiveRewatch(w.clean(oldp), w.clean(newp), olde, newe); err != nil {
 		w.Fatalf("RecursiveRewatch(%s, %s, %v, %v)=%v", oldp, newp, olde, newe, err)
 	}
+	return nil
 }
 
 func (w *MockWatcher) initwatcher(buffer int) {

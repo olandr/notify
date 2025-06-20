@@ -12,7 +12,7 @@ import (
 )
 
 func newWatcherTest(t *testing.T, tree string) *MockWatcher {
-	root, err := randomtree("")
+	root, err := tmptree("", filepath.FromSlash(tree))
 	if err != nil {
 		t.Fatalf(`tmptree("", %q)=%v`, tree, err)
 	}

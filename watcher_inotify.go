@@ -1,4 +1,5 @@
 // Copyright (c) 2014-2015 The Notify Authors. All rights reserved.
+// Edited by in 2025 olandr.
 // Use of this source code is governed by the MIT license that can be
 // found in the LICENSE file.
 
@@ -71,12 +72,12 @@ func newWatcher(c chan<- EventInfo) watcher {
 }
 
 // Watch implements notify.watcher interface.
-func (i *inotify) Watch(path string, e Event) error {
+func (i *inotify) Watch(path string, e Event, _ bool) error {
 	return i.watch(path, e)
 }
 
 // Rewatch implements notify.watcher interface.
-func (i *inotify) Rewatch(path string, _, newevent Event) error {
+func (i *inotify) Rewatch(_ string, path string, _, newevent Event, _ bool) error {
 	return i.watch(path, newevent)
 }
 
@@ -339,7 +340,7 @@ func decode(mask Event, e *event) (syse *event) {
 // related to registered path and if found, calls inotify_rm_watch(2) function.
 // This method is allowed to return EINVAL error when concurrently requested to
 // delete identical path.
-func (i *inotify) Unwatch(path string) (err error) {
+func (i *inotify) Unwatch(path string, _ bool) (err error) {
 	iwd := int32(invalidDescriptor)
 	i.RLock()
 	for iwdkey, wd := range i.m {

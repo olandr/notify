@@ -1,4 +1,5 @@
 // Copyright (c) 2014-2015 The Notify Authors. All rights reserved.
+// Edited by in 2025 olandr.
 // Use of this source code is governed by the MIT license that can be
 // found in the LICENSE file.
 
@@ -157,53 +158,9 @@ func newTreeN(t *testing.T, tree string) *N {
 func NewNotifyTest(t *testing.T, tree string) *N {
 	fmt.Printf("func NewNotifyTest(t *testing.T, tree string) *N {")
 	n := newN(t, tree)
-	if rw, ok := n.w.watcher().(recursiveWatcher); ok {
-		n.tree = newRecursiveTree(rw, n.w.c())
-	} else {
-		n.tree = newNonrecursiveTree(n.w.watcher(), n.w.c(), nil)
-	}
+	n.tree = NewTree()
 	t.Cleanup(n.Close)
 	return n
-}
-
-func NewRecursiveTreeTest(t *testing.T, tree string) *N {
-	n := newTreeN(t, tree)
-	n.tree = newRecursiveTree(n.spy, n.c)
-	t.Cleanup(n.Close)
-	return n
-}
-
-func NewNonrecursiveTreeTest(t *testing.T, tree string) *N {
-	n := newTreeN(t, tree)
-	n.tree = newNonrecursiveTree(n.spy, n.c, nil)
-	t.Cleanup(n.Close)
-	return n
-}
-
-func NewNonrecursiveTreeTestC(t *testing.T, tree string) (*N, chan EventInfo) {
-	rec := make(chan EventInfo, buffer)
-	recinternal := make(chan EventInfo, buffer)
-	recuser := make(chan EventInfo, buffer)
-	go func() {
-		for ei := range rec {
-			select {
-			case recinternal <- ei:
-			default:
-				t.Fatalf("failed to send ei to recinternal: not ready")
-			}
-			select {
-			case recuser <- ei:
-			default:
-				t.Fatalf("failed to send ei to recuser: not ready")
-			}
-		}
-	}()
-	n := newTreeN(t, tree)
-	tr := newNonrecursiveTree(n.spy, n.c, recinternal)
-	tr.rec = rec
-	n.tree = tr
-	t.Cleanup(n.Close)
-	return n, recuser
 }
 
 func (n *N) timeout() time.Duration {
@@ -397,16 +354,7 @@ func (n *N) ExpectNotifyEvents(cases []Case, all Chans) {
 }
 
 func (n *N) Walk(fn walkFunc) {
-	switch t := n.tree.(type) {
-	case *recursiveTree:
-		if err := t.root.Walk("", fn, nil); err != nil {
-			n.w.Fatal(err)
-		}
-	case *nonrecursiveTree:
-		if err := t.root.Walk("", fn, nil); err != nil {
-			n.w.Fatal(err)
-		}
-	default:
-		n.t.Fatal("unknown tree type")
+	if err := n.tree.(*internalTree).root.Walk("", fn, nil); err != nil {
+		n.w.Fatal(err)
 	}
 }

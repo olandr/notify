@@ -1,4 +1,4 @@
-// File created by olandr (c) 2025
+// File created by olandr (c) 2025.
 // Contains code from Copyright (c) 2014-2015 The Notify Authors. All rights reserved.
 // Use of this source code is governed by the MIT license that can be
 // found in the LICENSE file.
@@ -18,39 +18,33 @@ type FakeWatcherCalls []Call
 
 func (s *FakeWatcherCalls) Close() (_ error) { return }
 
-func (s *FakeWatcherCalls) Watch(p string, e Event) (_ error) {
+func (s *FakeWatcherCalls) Watch(p string, e Event, isrec bool) (_ error) {
 	dbgprintf("%s: (*FakeWatcherCalls).Watch(%q, %v)", caller(), p, e)
 	*s = append(*s, Call{F: FuncWatch, P: p, E: e})
+	if isrec {
+		dbgprintf("%s: (*FakeWatcherCalls).RecursiveWatch(%q, %v)", caller(), p, e)
+		*s = append(*s, Call{F: FuncRecursiveWatch, P: p, E: e})
+	}
 	return
 }
 
-func (s *FakeWatcherCalls) Unwatch(p string) (_ error) {
+func (s *FakeWatcherCalls) Unwatch(p string, isrec bool) (_ error) {
 	dbgprintf("%s: (*FakeWatcherCalls).Unwatch(%q)", caller(), p)
 	*s = append(*s, Call{F: FuncUnwatch, P: p})
+	if isrec {
+		dbgprintf("%s: (*FakeWatcherCalls).RecursiveUnwatch(%q)", caller(), p)
+		*s = append(*s, Call{F: FuncRecursiveUnwatch, P: p})
+	}
 	return
 }
 
-func (s *FakeWatcherCalls) Rewatch(p string, olde, newe Event) (_ error) {
-	dbgprintf("%s: (*FakeWatcherCalls).Rewatch(%q, %v, %v)", caller(), p, olde, newe)
-	*s = append(*s, Call{F: FuncRewatch, P: p, E: olde, NE: newe})
-	return
-}
-
-func (s *FakeWatcherCalls) RecursiveWatch(p string, e Event) (_ error) {
-	dbgprintf("%s: (*FakeWatcherCalls).RecursiveWatch(%q, %v)", caller(), p, e)
-	*s = append(*s, Call{F: FuncRecursiveWatch, P: p, E: e})
-	return
-}
-
-func (s *FakeWatcherCalls) RecursiveUnwatch(p string) (_ error) {
-	dbgprintf("%s: (*FakeWatcherCalls).RecursiveUnwatch(%q)", caller(), p)
-	*s = append(*s, Call{F: FuncRecursiveUnwatch, P: p})
-	return
-}
-
-func (s *FakeWatcherCalls) RecursiveRewatch(oldp, newp string, olde, newe Event) (_ error) {
-	dbgprintf("%s: (*FakeWatcherCalls).RecursiveRewatch(%q, %q, %v, %v)", caller(), oldp, newp, olde, newe)
-	*s = append(*s, Call{F: FuncRecursiveRewatch, P: oldp, NP: newp, E: olde, NE: newe})
+func (s *FakeWatcherCalls) Rewatch(oldPath, newPath string, olde, newe Event, isrec bool) (_ error) {
+	dbgprintf("%s: (*FakeWatcherCalls).Rewatch(%q, %v, %v)", caller(), newPath, olde, newe)
+	*s = append(*s, Call{F: FuncRewatch, P: newPath, E: olde, NE: newe})
+	if isrec {
+		dbgprintf("%s: (*FakeWatcherCalls).RecursiveRewatch(%q, %q, %v, %v)", caller(), oldPath, newPath, olde, newe)
+		*s = append(*s, Call{F: FuncRecursiveRewatch, P: oldPath, NP: newPath, E: olde, NE: newe})
+	}
 	return
 }
 
@@ -71,55 +65,35 @@ func (w *MockWatcher) Close() error {
 	}
 	return nil
 }
-func (w *MockWatcher) Watch(path string, e Event) error {
-	if err := w.watcher().Watch(w.clean(path), e); err != nil {
-		w.Fatalf("Watch(%s, %v)=%v", path, e, err)
+func (w *MockWatcher) Watch(path string, e Event, isrec bool) error {
+	if err := w.watcher().Watch(w.clean(path), e, isrec); err != nil {
+		if isrec {
+			w.Fatalf("RecursiveWatch(%s, %v)=%v", path, e, err)
+		} else {
+			w.Fatalf("Watch(%s, %v)=%v", path, e, err)
+		}
 	}
 	return nil
 }
 
-func (w *MockWatcher) Unwatch(path string) error {
-	if err := w.watcher().Unwatch(w.clean(path)); err != nil {
-		w.Fatalf("Unwatch(%s)=%v", path, err)
+func (w *MockWatcher) Unwatch(path string, isrec bool) error {
+	if err := w.watcher().Unwatch(w.clean(path), isrec); err != nil {
+		if isrec {
+			w.Fatalf("RecursiveUnwatch(%s)=%v", path, err)
+		} else {
+			w.Fatalf("Unwatch(%s)=%v", path, err)
+		}
 	}
 	return nil
 }
 
-func (w *MockWatcher) Rewatch(path string, olde, newe Event) error {
-	if err := w.watcher().Rewatch(w.clean(path), olde, newe); err != nil {
-		w.Fatalf("Rewatch(%s, %v, %v)=%v", path, olde, newe, err)
-	}
-	return nil
-}
-
-func (w *MockWatcher) RecursiveWatch(path string, e Event) error {
-	rw, ok := w.watcher().(recursiveWatcher)
-	if !ok {
-		w.Fatal("watcher does not implement recursive watching on this platform")
-	}
-	if err := rw.RecursiveWatch(w.clean(path), e); err != nil {
-		w.Fatalf("RecursiveWatch(%s, %v)=%v", path, e, err)
-	}
-	return nil
-}
-
-func (w *MockWatcher) RecursiveUnwatch(path string) error {
-	rw, ok := w.watcher().(recursiveWatcher)
-	if !ok {
-		w.Fatal("watcher does not implement recursive watching on this platform")
-	}
-	if err := rw.RecursiveUnwatch(w.clean(path)); err != nil {
-		w.Fatalf("RecursiveUnwatch(%s)=%v", path, err)
-	}
-	return nil
-}
-func (w *MockWatcher) RecursiveRewatch(oldp, newp string, olde, newe Event) error {
-	rw, ok := w.watcher().(recursiveWatcher)
-	if !ok {
-		w.Fatal("watcher does not implement recursive watching on this platform")
-	}
-	if err := rw.RecursiveRewatch(w.clean(oldp), w.clean(newp), olde, newe); err != nil {
-		w.Fatalf("RecursiveRewatch(%s, %s, %v, %v)=%v", oldp, newp, olde, newe, err)
+func (w *MockWatcher) Rewatch(oldPath, newPath string, olde, newe Event, isrec bool) error {
+	if err := w.watcher().Rewatch(w.clean(oldPath), w.clean(newPath), olde, newe, isrec); err != nil {
+		if isrec {
+			w.Fatalf("RecursiveRewatch(%s, %s, %v, %v)=%v", oldPath, newPath, olde, newe, err)
+		} else {
+			w.Fatalf("Rewatch(%s, %v, %v)=%v", newPath, olde, newe, err)
+		}
 	}
 	return nil
 }

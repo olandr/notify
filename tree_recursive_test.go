@@ -1,11 +1,21 @@
 // Copyright (c) 2014-2015 The Notify Authors. All rights reserved.
+// Edited by in 2025 olandr.
 // Use of this source code is governed by the MIT license that can be
 // found in the LICENSE file.
+
+//go:build windows && darwin && !kqueue && cgo && !ios
+// +build windows,darwin,!kqueue,cgo,!ios
 
 package notify
 
 import "testing"
 
+func NewRecursiveTreeTest(t *testing.T, tree string) *N {
+	n := newTreeN(t, tree)
+	n.tree = newRecursiveTree(n.spy, n.c)
+	t.Cleanup(n.Close)
+	return n
+}
 func TestRecursiveTree(t *testing.T) {
 	n := NewRecursiveTreeTest(t, "testdata/vfs.txt")
 

@@ -1,4 +1,5 @@
 // Copyright (c) 2014-2015 The Notify Authors. All rights reserved.
+// Edited by in 2025 olandr.
 // Use of this source code is governed by the MIT license that can be
 // found in the LICENSE file.
 
@@ -52,14 +53,14 @@ func TestStopPathNotExists(t *testing.T) {
 	// does not return a potential error. As long as everything later on
 	// works as inteded, that's fine
 	time.Sleep(time.Duration(100) * time.Millisecond)
-	w.Watcher.Unwatch(w.root)
+	w.Watcher.Unwatch(w.root, false)
 	time.Sleep(time.Duration(100) * time.Millisecond)
 
 	if err := os.Mkdir(w.root, 0777); err != nil {
 		panic(err)
 	}
 	Sync()
-	w.Watch("", All)
+	w.Watch("", All, false)
 
 	drainall(w.C)
 	cases := [...]FileOperation{
@@ -74,9 +75,9 @@ func TestWatcherUnwatch(t *testing.T) {
 	defer w.Close()
 
 	remove(w, "src/github.com/ppknap/link/test/test_circular_calls.cpp").Action()
-	w.Unwatch("")
+	w.Unwatch("", false)
 
-	w.Watch("", All)
+	w.Watch("", All, false)
 
 	drainall(w.C)
 	cases := [...]FileOperation{

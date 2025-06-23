@@ -1,4 +1,5 @@
 // Copyright (c) 2014-2015 The Notify Authors. All rights reserved.
+// Edited by in 2025 olandr.
 // Use of this source code is governed by the MIT license that can be
 // found in the LICENSE file.
 
@@ -110,7 +111,7 @@ func TestDefaultTree(t *testing.T) {
 		t.Skip("TODO(rjeczalik)")
 	})
 
-	t.Run("notify renmae in root", func(t *testing.T) {
+	t.Run("notify rename in root", func(t *testing.T) {
 		n := NewNotify()
 		defer n.Close()
 		tmpDir := t.TempDir()

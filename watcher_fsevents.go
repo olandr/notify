@@ -1,4 +1,5 @@
 // Copyright (c) 2014-2015 The Notify Authors. All rights reserved.
+// Edited by in 2025 olandr.
 // Use of this source code is governed by the MIT license that can be
 // found in the LICENSE file.
 
@@ -172,7 +173,7 @@ func (w *watch) Stop() {
 	atomic.StoreInt32(&w.isrec, 0)
 }
 
-// fsevents implements Watcher and RecursiveWatcher interfaces backed by FSEvents
+// fsevents implements Watcher interface backed by FSEvents
 // framework.
 type fsevents struct {
 	watches map[string]*watch
@@ -218,86 +219,65 @@ func (fse *fsevents) unwatch(path string) (err error) {
 // Watch implements Watcher interface. It fails with non-nil error when setting
 // the watch-point by FSEvents fails or with errAlreadyWatched error when
 // the given path is already watched.
-func (fse *fsevents) Watch(path string, event Event) error {
+func (fse *fsevents) Watch(path string, event Event, isrec bool) error {
+	if isrec {
+		return fse.watch(path, event, 1)
+	}
 	return fse.watch(path, event, 0)
 }
 
 // Unwatch implements Watcher interface. It fails with errNotWatched when
 // the given path is not being watched.
-func (fse *fsevents) Unwatch(path string) error {
+func (fse *fsevents) Unwatch(path string, _ bool) error {
 	return fse.unwatch(path)
 }
 
 // Rewatch implements Watcher interface. It fails with errNotWatched when
 // the given path is not being watched or with errInvalidEventSet when oldevent
 // does not match event set the watch-point currently holds.
-func (fse *fsevents) Rewatch(path string, oldevent, newevent Event) error {
-	w, ok := fse.watches[path]
-	if !ok {
-		return errNotWatched
-	}
-	if !atomic.CompareAndSwapUint32(&w.events, uint32(oldevent), uint32(newevent)) {
-		return errInvalidEventSet
-	}
-	atomic.StoreInt32(&w.isrec, 0)
-	return nil
-}
-
-// RecursiveWatch implements RecursiveWatcher interface. It fails with non-nil
-// error when setting the watch-point by FSEvents fails or with errAlreadyWatched
-// error when the given path is already watched.
-func (fse *fsevents) RecursiveWatch(path string, event Event) error {
-	return fse.watch(path, event, 1)
-}
-
-// RecursiveUnwatch implements RecursiveWatcher interface. It fails with
-// errNotWatched when the given path is not being watched.
-//
-// TODO(rjeczalik): fail if w.isrec == 0?
-func (fse *fsevents) RecursiveUnwatch(path string) error {
-	return fse.unwatch(path)
-}
-
-// RecursiveRewatch implements RecursiveWatcher interface. It fails:
-//
-//   - with errNotWatched when the given path is not being watched
-//   - with errInvalidEventSet when oldevent does not match the current event set
-//   - with errAlreadyWatched when watch-point given by the oldpath was meant to
-//     be relocated to newpath, but the newpath is already watched
-//   - a non-nil error when setting the watch-point with FSEvents fails
-//
-// TODO(rjeczalik): Improve handling of watch-point relocation? See two TODOs
-// that follows.
-func (fse *fsevents) RecursiveRewatch(oldpath, newpath string, oldevent, newevent Event) error {
-	switch [2]bool{oldpath == newpath, oldevent == newevent} {
-	case [2]bool{true, true}:
-		w, ok := fse.watches[oldpath]
-		if !ok {
-			return errNotWatched
+func (fse *fsevents) Rewatch(oldPath, newPath string, oldevent, newevent Event, isrec bool) error {
+	if isrec {
+		switch [2]bool{oldPath == newPath, oldevent == newevent} {
+		case [2]bool{true, true}:
+			w, ok := fse.watches[oldPath]
+			if !ok {
+				return errNotWatched
+			}
+			atomic.StoreInt32(&w.isrec, 1)
+			return nil
+		case [2]bool{true, false}:
+			w, ok := fse.watches[oldPath]
+			if !ok {
+				return errNotWatched
+			}
+			if !atomic.CompareAndSwapUint32(&w.events, uint32(oldevent), uint32(newevent)) {
+				return errors.New("invalid event state diff")
+			}
+			atomic.StoreInt32(&w.isrec, 1)
+			return nil
+		default:
+			// TODO(rjeczalik): rewatch newPath only if exists?
+			// TODO(rjeczalik): migrate w.prev to new watch?
+			if _, ok := fse.watches[newPath]; ok {
+				return errAlreadyWatched
+			}
+			if err := fse.Unwatch(oldPath, isrec); err != nil {
+				return err
+			}
+			// TODO(rjeczalik): revert unwatch if watch fails?
+			return fse.watch(newPath, newevent, 1)
 		}
-		atomic.StoreInt32(&w.isrec, 1)
-		return nil
-	case [2]bool{true, false}:
-		w, ok := fse.watches[oldpath]
+	} else {
+
+		w, ok := fse.watches[newPath]
 		if !ok {
 			return errNotWatched
 		}
 		if !atomic.CompareAndSwapUint32(&w.events, uint32(oldevent), uint32(newevent)) {
-			return errors.New("invalid event state diff")
+			return errInvalidEventSet
 		}
-		atomic.StoreInt32(&w.isrec, 1)
+		atomic.StoreInt32(&w.isrec, 0)
 		return nil
-	default:
-		// TODO(rjeczalik): rewatch newpath only if exists?
-		// TODO(rjeczalik): migrate w.prev to new watch?
-		if _, ok := fse.watches[newpath]; ok {
-			return errAlreadyWatched
-		}
-		if err := fse.Unwatch(oldpath); err != nil {
-			return err
-		}
-		// TODO(rjeczalik): revert unwatch if watch fails?
-		return fse.watch(newpath, newevent, 1)
 	}
 }
 

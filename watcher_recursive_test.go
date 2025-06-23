@@ -1,4 +1,5 @@
 // Copyright (c) 2014-2015 The Notify Authors. All rights reserved.
+// Edited by in 2025 olandr.
 // Use of this source code is governed by the MIT license that can be
 // found in the LICENSE file.
 
@@ -31,7 +32,7 @@ func TestWatcherRecursiveRewatch(t *testing.T) {
 		noevent(rename(w, "src/github.com/rjeczalik/fs/LICENSE", "src/LICENSE")),
 	}
 
-	w.Watch("src/github.com/rjeczalik", Create)
+	w.Watch("src/github.com/rjeczalik", Create, false)
 	w.ExpectAny(cases)
 
 	cases = []FileOperation{
@@ -43,7 +44,7 @@ func TestWatcherRecursiveRewatch(t *testing.T) {
 		noevent(create(w, "src/github.com/anotherdir/")),
 	}
 
-	w.RecursiveRewatch("src/github.com/rjeczalik", "src/github.com/rjeczalik", Create, Create)
+	w.Rewatch("src/github.com/rjeczalik", "src/github.com/rjeczalik", Create, Create, true)
 	w.ExpectAny(cases)
 
 	cases = []FileOperation{
@@ -54,7 +55,7 @@ func TestWatcherRecursiveRewatch(t *testing.T) {
 		noevent(write(w, "src/github.com/rjeczalik/fs/file", []byte("XD"))),
 	}
 
-	w.Rewatch("src/github.com/rjeczalik", Create, Create)
+	w.Rewatch("", "src/github.com/rjeczalik", Create, Create, false)
 	w.ExpectAny(cases)
 }
 

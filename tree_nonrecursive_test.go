@@ -1,6 +1,10 @@
 // Copyright (c) 2014-2015 The Notify Authors. All rights reserved.
+// Edited by in 2025 olandr.
 // Use of this source code is governed by the MIT license that can be
 // found in the LICENSE file.
+
+//go:build !((windows || darwin) && !kqueue && cgo && !ios)
+// +build !windows,!darwin kqueue !cgo ios
 
 package notify
 
@@ -8,6 +12,38 @@ import (
 	"fmt"
 	"testing"
 )
+
+func NewNonrecursiveTreeTest(t *testing.T, tree string) *N {
+	n := newTreeN(t, tree)
+	n.tree = newNonrecursiveTree(n.spy, n.c, nil)
+	t.Cleanup(n.Close)
+	return n
+}
+func NewNonrecursiveTreeTestC(t *testing.T, tree string) (*N, chan EventInfo) {
+	rec := make(chan EventInfo, buffer)
+	recinternal := make(chan EventInfo, buffer)
+	recuser := make(chan EventInfo, buffer)
+	go func() {
+		for ei := range rec {
+			select {
+			case recinternal <- ei:
+			default:
+				t.Fatalf("failed to send ei to recinternal: not ready")
+			}
+			select {
+			case recuser <- ei:
+			default:
+				t.Fatalf("failed to send ei to recuser: not ready")
+			}
+		}
+	}()
+	n := newTreeN(t, tree)
+	tr := newNonrecursiveTree(n.spy, n.c, recinternal)
+	tr.rec = rec
+	n.tree = tr
+	t.Cleanup(n.Close)
+	return n, recuser
+}
 
 func TestNonrecursiveTree(t *testing.T) {
 	n := NewNonrecursiveTreeTest(t, "testdata/vfs.txt")

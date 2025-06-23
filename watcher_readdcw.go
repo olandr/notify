@@ -282,13 +282,8 @@ func newWatcher(c chan<- EventInfo) watcher {
 }
 
 // Watch implements notify.Watcher interface.
-func (r *readdcw) Watch(path string, event Event) error {
-	return r.watch(path, event, false)
-}
-
-// RecursiveWatch implements notify.RecursiveWatcher interface.
-func (r *readdcw) RecursiveWatch(path string, event Event) error {
-	return r.watch(path, event, true)
+func (r *readdcw) Watch(path string, event Event, isrec bool) error {
+	return r.watch(path, event, isrec)
 }
 
 // watch inserts a directory to the group of watched folders. If watched folder
@@ -453,20 +448,18 @@ func (r *readdcw) send(es []*event) {
 }
 
 // Rewatch implements notify.Rewatcher interface.
-func (r *readdcw) Rewatch(path string, oldevent, newevent Event) error {
-	return r.rewatch(path, uint32(oldevent), uint32(newevent), false)
-}
-
-// RecursiveRewatch implements notify.RecursiveRewatcher interface.
-func (r *readdcw) RecursiveRewatch(oldpath, newpath string, oldevent,
-	newevent Event) error {
-	if oldpath != newpath {
-		if err := r.unwatch(oldpath); err != nil {
-			return err
+func (r *readdcw) Rewatch(oldPath, newPath string, oldevent, newevent Event, isrec bool) error {
+	if isrec {
+		if oldPath != newPath {
+			if err := r.unwatch(oldPath); err != nil {
+				return err
+			}
+			return r.watch(newPath, newevent, true)
 		}
-		return r.watch(newpath, newevent, true)
+		return r.rewatch(newPath, uint32(oldevent), uint32(newevent), true)
+	} else {
+		return r.rewatch(newPath, uint32(oldevent), uint32(newevent), false)
 	}
-	return r.rewatch(newpath, uint32(oldevent), uint32(newevent), true)
 }
 
 // TODO : (pknap) doc.
@@ -508,12 +501,7 @@ func (r *readdcw) nonStateWatchedLocked(path string) (wd *watched, err error) {
 }
 
 // Unwatch implements notify.Watcher interface.
-func (r *readdcw) Unwatch(path string) error {
-	return r.unwatch(path)
-}
-
-// RecursiveUnwatch implements notify.RecursiveWatcher interface.
-func (r *readdcw) RecursiveUnwatch(path string) error {
+func (r *readdcw) Unwatch(path string, _ bool) error {
 	return r.unwatch(path)
 }
 

@@ -66,6 +66,7 @@ type event struct {
 	event Event
 }
 
+func (ei *event) Timestamp() int64     { return ei.fse.Timestamp }
 func (ei *event) Event() Event         { return ei.event }
 func (ei *event) Path() string         { return ei.fse.Path }
 func (ei *event) Sys() interface{}     { return &ei.fse }

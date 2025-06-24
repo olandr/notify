@@ -106,6 +106,7 @@ func (e Event) String() string {
 //
 //	https://msdn.microsoft.com/en-us/library/windows/desktop/aa365465%28v=vs.85%29.aspx
 type EventInfo interface {
+	Timestamp() int64 // timestamp of when event occured
 	Event() Event     // event value for the filesystem action
 	Path() string     // real path of the file or directory
 	Sys() interface{} // underlying data source (can return nil)

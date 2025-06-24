@@ -101,9 +101,11 @@ type Call struct {
 	NE  Event          // new Event argument from Rewatch call
 	S   interface{}    // when Call is used as EventInfo, S is a value of Sys()
 	Dir bool           // when Call is used as EventInfo, Dir is a value of isDir()
+	T   int64          // timestamp when event occured
 }
 
 // Call implements the EventInfo interface.
+func (c *Call) Timestamp() int64     { return c.T }
 func (c *Call) Event() Event         { return c.E }
 func (c *Call) Path() string         { return c.P }
 func (c *Call) String() string       { return fmt.Sprintf("%#v", c) }

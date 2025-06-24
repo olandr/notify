@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -344,11 +345,15 @@ func encode(e Event) uint32 {
 // can be nil when the event should not be passed on.
 func decode(mask Event, e *event) (syse *event) {
 	if sysmask := uint32(mask) & e.sys.Mask; sysmask != 0 {
-		syse = &event{sys: unix.InotifyEvent{
-			Wd:     e.sys.Wd,
-			Mask:   e.sys.Mask,
-			Cookie: e.sys.Cookie,
-		}, event: Event(sysmask), path: e.path}
+		syse = &event{
+			sys: unix.InotifyEvent{
+				Wd:     e.sys.Wd,
+				Mask:   e.sys.Mask,
+				Cookie: e.sys.Cookie,
+			},
+			timestamp: time.Now().Unix(),
+			event:     Event(sysmask), path: e.path,
+		}
 	}
 	imask := encode(mask)
 	switch {

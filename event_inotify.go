@@ -65,11 +65,13 @@ const (
 )
 
 type event struct {
-	sys   unix.InotifyEvent
-	path  string
-	event Event
+	sys       unix.InotifyEvent
+	path      string
+	event     Event
+	timestamp int64
 }
 
+func (e *event) Timestamp() int64     { return e.timestamp }
 func (e *event) Event() Event         { return e.event }
 func (e *event) Path() string         { return e.path }
 func (e *event) Sys() interface{}     { return &e.sys }

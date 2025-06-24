@@ -27,6 +27,7 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unsafe"
 )
 
@@ -72,9 +73,10 @@ func gostream(_, info uintptr, n C.size_t, paths, flags, ids uintptr) {
 			atomic.StoreUint64(&since, uint64(C.FSEventsGetCurrentEventId()))
 		default:
 			ev = append(ev, FSEvent{
-				Path:  C.GoString(*(**C.char)(unsafe.Pointer(paths + i*offchar))),
-				Flags: flags,
-				ID:    *(*uint64)(unsafe.Pointer(ids + i*offid)),
+				Timestamp: time.Now().Unix(),
+				Path:      C.GoString(*(**C.char)(unsafe.Pointer(paths + i*offchar))),
+				Flags:     flags,
+				ID:        *(*uint64)(unsafe.Pointer(ids + i*offid)),
 			})
 		}
 	}

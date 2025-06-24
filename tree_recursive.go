@@ -32,6 +32,7 @@ type internalTree struct {
 const buffer = 128
 
 type tree interface {
+	Exclude(string) error
 	Watch(string, chan<- EventInfo, DoNotWatchFn, ...Event) error
 	Stop(chan<- EventInfo)
 	Close() error
@@ -186,6 +187,10 @@ func (t *internalTree) dispatch() {
 	}
 }
 
+func (t *internalTree) Exclude(pattern string) error {
+	return t.w.Exclude(pattern)
+}
+
 // Watch TODO(rjeczalik)
 func (t *internalTree) Watch(path string, c chan<- EventInfo,
 	_ DoNotWatchFn, events ...Event) error {
@@ -217,7 +222,6 @@ func (t *internalTree) Watch(path string, c chan<- EventInfo,
 	}
 
 	return t.curIsNewNode(c, eventset, isrec, cur)
-	//return nil
 }
 
 // curIsChild looks for parent watch which already covers the given path. (case 1)

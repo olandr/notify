@@ -11,7 +11,9 @@ package notify
 import (
 	"bytes"
 	"errors"
+	"maps"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -50,17 +52,19 @@ type inotify struct {
 	buffer       [eventBufferSize]byte // inotify event buffer
 	wg           sync.WaitGroup        // wait group used to close main loop
 	c            chan<- EventInfo      // event dispatcher channel
+	exclude      map[string]*regexp.Regexp
 }
 
 // NewWatcher creates new non-recursive inotify backed by inotify.
 func newWatcher(c chan<- EventInfo) watcher {
 	i := &inotify{
-		m:      make(map[int32]*watched),
-		fd:     invalidDescriptor,
-		pipefd: []int{invalidDescriptor, invalidDescriptor},
-		epfd:   invalidDescriptor,
-		epes:   make([]unix.EpollEvent, 0),
-		c:      c,
+		m:       make(map[int32]*watched),
+		fd:      invalidDescriptor,
+		pipefd:  []int{invalidDescriptor, invalidDescriptor},
+		epfd:    invalidDescriptor,
+		epes:    make([]unix.EpollEvent, 0),
+		c:       c,
+		exclude: make(map[string]*regexp.Regexp),
 	}
 	runtime.SetFinalizer(i, func(i *inotify) {
 		i.epollclose()
@@ -69,6 +73,20 @@ func newWatcher(c chan<- EventInfo) watcher {
 		}
 	})
 	return i
+}
+
+func (i *inotify) Exclude(pattern string) error {
+	if pattern == "" {
+		return nil
+	}
+	if _, ok := i.exclude[pattern]; !ok {
+		c, err := regexp.Compile(pattern)
+		if err != nil {
+			return err
+		}
+		i.exclude[pattern] = c
+	}
+	return nil
 }
 
 // Watch implements notify.watcher interface.
@@ -249,12 +267,24 @@ func (i *inotify) read() (es []*event) {
 func (i *inotify) send(esch <-chan []*event) {
 	for es := range esch {
 		for _, e := range i.transform(es) {
-			if e != nil {
+			if e != nil && i.shouldSend(e) {
 				i.c <- e
 			}
 		}
 	}
 	i.wg.Done()
+}
+
+func (i *inotify) shouldSend(e *event) bool {
+	shouldSend := true
+	for v := range maps.Values(i.exclude) {
+		if v.MatchString(e.path) {
+			dbgprintf("will exclude event: %v", e.String())
+			shouldSend = false
+			break
+		}
+	}
+	return len(i.exclude) == 0 || shouldSend
 }
 
 // transform prepares events read from inotify file descriptor for sending to

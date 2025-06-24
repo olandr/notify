@@ -37,13 +37,38 @@ func TestWatcher(t *testing.T) {
 	w.ExpectAny(cases[:])
 }
 
+func TestWatcherExclude(t *testing.T) {
+	w := NewWatcherTest(t, "testdata/vfs.txt")
+	defer w.Close()
+	w.Exclude(".*rjeczalik.*")
+	w.Exclude(".*dir/?")
+	include := []FileOperation{
+		create(w, "src/github.com/ppknap/link/include/coost/.link.hpp.swp"),
+		create(w, "file"),
+	}
+	exclude := []FileOperation{
+		create(w, "src/github.com/rjeczalik/fs/fs_test.go"),
+		create(w, "src/github.com/rjeczalik/fs/binfs/"),
+		create(w, "src/github.com/rjeczalik/fs/binfs.go"),
+		create(w, "src/github.com/rjeczalik/fs/binfs_test.go"),
+		remove(w, "src/github.com/rjeczalik/fs/binfs/"),
+		create(w, "src/github.com/rjeczalik/fs/binfs/"),
+		create(w, "src/github.com/rjeczalik/fs/virfs"),
+		remove(w, "src/github.com/rjeczalik/fs/virfs"),
+		create(w, "dir/"),
+	}
+
+	w.ExpectAny(include)
+	w.ExpectNone(exclude)
+}
+
 // Simulates the scenario, where outside of the programs control the base dir
 // is removed. This is detected and the watch removed. Then the directory is
 // restored and a new watch set up.
 func TestStopPathNotExists(t *testing.T) {
 	w := NewWatcherTest(t, "testdata/vfs.txt")
 	defer w.Close()
-
+	w.Watcher.Unwatch(w.root, false)
 	if err := os.RemoveAll(w.root); err != nil {
 		panic(err)
 	}
@@ -52,21 +77,24 @@ func TestStopPathNotExists(t *testing.T) {
 	// Don't check the returned error, as the public function (notify.Stop)
 	// does not return a potential error. As long as everything later on
 	// works as inteded, that's fine
-	time.Sleep(time.Duration(100) * time.Millisecond)
+	time.Sleep(time.Duration(200) * time.Millisecond)
 	w.Watcher.Unwatch(w.root, false)
-	time.Sleep(time.Duration(100) * time.Millisecond)
+	time.Sleep(time.Duration(200) * time.Millisecond)
 
 	if err := os.Mkdir(w.root, 0777); err != nil {
 		panic(err)
 	}
 	Sync()
 	w.Watch("", All, false)
+	time.Sleep(time.Duration(200) * time.Millisecond)
 
 	drainall(w.C)
 	cases := [...]FileOperation{
 		create(w, "file"),
 		create(w, "dir/"),
 	}
+	time.Sleep(time.Duration(200) * time.Millisecond)
+
 	w.ExpectAny(cases[:])
 }
 

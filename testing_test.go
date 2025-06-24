@@ -156,7 +156,6 @@ func newTreeN(t *testing.T, tree string) *N {
 }
 
 func NewNotifyTest(t *testing.T, tree string) *N {
-	fmt.Printf("func NewNotifyTest(t *testing.T, tree string) *N {")
 	n := newN(t, tree)
 	n.tree = NewTree()
 	t.Cleanup(n.Close)

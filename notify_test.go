@@ -12,6 +12,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -208,6 +209,73 @@ func TestDefaultTree(t *testing.T) {
 		checkCreated()
 	})
 }
+
+func TestWatchWithExclude(t *testing.T) {
+	t.Run("exclude paths", func(t *testing.T) {
+		n := NewNotify()
+		defer n.Close()
+		tmpDir := t.TempDir()
+
+		c := make(chan EventInfo, 100)
+		n.Exclude(".*ignore.*")
+		if err := n.Watch(tmpDir+"/...", c, All); err != nil {
+			t.Fatal(err)
+		}
+		defer n.Stop(c)
+
+		// Create directories and files
+		mustT(t, os.Mkdir(filepath.Join(tmpDir, "watch"), 0777))
+		mustT(t, os.Mkdir(filepath.Join(tmpDir, "ignore"), 0777))
+		mustT(t, os.WriteFile(filepath.Join(tmpDir, "watch", "file.txt"), []byte("data"), 0666))
+		mustT(t, os.WriteFile(filepath.Join(tmpDir, "ignore", "file.txt"), []byte("data"), 0666))
+
+		timeout := time.After(time.Second)
+		for {
+			select {
+			case ev := <-c:
+				t.Logf("info got ev: %v", ev)
+				if strings.Contains(ev.Path(), "ignore") {
+					t.Fatal("ERROR received event for ignored path")
+				}
+				if strings.Contains(ev.Path(), "watch") {
+					return
+				}
+				t.Log(ev.Path())
+			case <-timeout:
+				t.Fatal("timed out before receiving event")
+			}
+		}
+	})
+
+	t.Run("no exclusion", func(t *testing.T) {
+		n := NewNotify()
+		defer n.Close()
+		tmpDir := t.TempDir()
+
+		c := make(chan EventInfo, 100)
+		n.Exclude("")
+		if err := n.Watch(tmpDir+"/...", c, All); err != nil {
+			t.Fatal(err)
+		}
+		defer n.Stop(c)
+		file := filepath.Join(tmpDir, "file.txt")
+		mustT(t, os.WriteFile(file, []byte("data"), 0666))
+
+		timeout := time.After(time.Second)
+		for {
+			select {
+			case ev := <-c:
+				if samefile(t, ev.Path(), file) {
+					return
+				}
+				t.Log(ev.Path())
+			case <-timeout:
+				t.Fatal("timed out before receiving event")
+			}
+		}
+	})
+}
+
 func mustT(t testing.TB, err error) {
 	t.Helper()
 	if err != nil {

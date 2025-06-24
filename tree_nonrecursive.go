@@ -10,20 +10,19 @@ package notify
 
 import (
 	"context"
-	"fmt"
 	"sync"
 )
 
 const buffer = 128
 
 type tree interface {
+	Exclude(string) error
 	Watch(string, chan<- EventInfo, DoNotWatchFn, ...Event) error
 	Stop(chan<- EventInfo)
 	Close() error
 }
 
 func NewTree() tree {
-	fmt.Printf("info create nonrecursive tree\n")
 	c := make(chan EventInfo, buffer)
 	w := newWatcher(c)
 	return newNonrecursiveTree(w, c, make(chan EventInfo, buffer))
@@ -215,10 +214,13 @@ func (t *internalTree) watchDel(nd node, c chan<- EventInfo, e Event) eventDiff 
 	return t.watchDelMin(0, nd, c, e)
 }
 
+func (t *internalTree) Exclude(pattern string) error {
+	return t.w.Exclude(pattern)
+}
+
 // Watch TODO(rjeczalik)
 func (t *internalTree) Watch(path string, c chan<- EventInfo,
 	doNotWatch DoNotWatchFn, events ...Event) error {
-	fmt.Printf("info for nonrecursive tree\n")
 
 	if c == nil {
 		panic("notify: Watch using nil channel")

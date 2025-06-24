@@ -10,6 +10,8 @@ package notify
 
 import (
 	"errors"
+	"maps"
+	"regexp"
 	"strings"
 	"sync/atomic"
 )
@@ -53,6 +55,7 @@ type watch struct {
 	events  uint32
 	isrec   int32
 	flushed bool
+	exclude map[string]*regexp.Regexp
 }
 
 // Example format:
@@ -154,11 +157,26 @@ func (w *watch) Dispatch(ev []FSEvent) {
 			continue
 		}
 		for _, e := range splitflags(e) {
-			dbgprintf("%d: single event: %v", ev[i].ID, Event(e))
-			w.c <- &event{
-				fse:   ev[i],
-				event: Event(e),
-			}
+			w.send(ev[i], e)
+		}
+	}
+}
+
+func (w *watch) send(ev FSEvent, e uint32) {
+	shouldSend := true
+
+	for v := range maps.Values(w.exclude) {
+		if v.MatchString(ev.Path) {
+			dbgprintf("%d: will exclude event: %v %v", ev.ID, Event(e), ev.Path)
+			shouldSend = false
+			break
+		}
+	}
+	if len(w.exclude) == 0 || shouldSend {
+		dbgprintf("%d: sending event: %v %v", ev.ID, Event(e), ev.Path)
+		w.c <- &event{
+			fse:   ev,
+			event: Event(e),
 		}
 	}
 }
@@ -177,12 +195,14 @@ func (w *watch) Stop() {
 // framework.
 type fsevents struct {
 	watches map[string]*watch
+	exclude map[string]*regexp.Regexp
 	c       chan<- EventInfo
 }
 
 func newWatcher(c chan<- EventInfo) watcher {
 	return &fsevents{
 		watches: make(map[string]*watch),
+		exclude: make(map[string]*regexp.Regexp),
 		c:       c,
 	}
 }
@@ -198,6 +218,7 @@ func (fse *fsevents) watch(path string, event Event, isrec int32) (err error) {
 		events: uint32(event),
 		isrec:  isrec,
 	}
+	w.exclude = fse.exclude
 	w.stream = newStream(path, w.Dispatch)
 	if err = w.stream.Start(); err != nil {
 		return err
@@ -213,6 +234,20 @@ func (fse *fsevents) unwatch(path string) (err error) {
 	}
 	w.stream.Stop()
 	delete(fse.watches, path)
+	return nil
+}
+
+func (fse *fsevents) Exclude(pattern string) error {
+	if pattern == "" {
+		return nil
+	}
+	if _, ok := fse.exclude[pattern]; !ok {
+		c, err := regexp.Compile(pattern)
+		if err != nil {
+			return err
+		}
+		fse.exclude[pattern] = c
+	}
 	return nil
 }
 

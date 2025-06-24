@@ -18,6 +18,11 @@ type FakeWatcherCalls []Call
 
 func (s *FakeWatcherCalls) Close() (_ error) { return }
 
+func (fse *FakeWatcherCalls) Exclude(pattern string) error {
+	//TODO IMPLEMENT
+	return nil
+}
+
 func (s *FakeWatcherCalls) Watch(p string, e Event, isrec bool) (_ error) {
 	dbgprintf("%s: (*FakeWatcherCalls).Watch(%q, %v)", caller(), p, e)
 	*s = append(*s, Call{F: FuncWatch, P: p, E: e})
@@ -65,6 +70,14 @@ func (w *MockWatcher) Close() error {
 	}
 	return nil
 }
+
+func (w *MockWatcher) Exclude(pattern string) error {
+	if err := w.watcher().Exclude(pattern); err != nil {
+		w.Fatalf("w.Watcher.Exclude()=%v", err)
+	}
+	return nil
+}
+
 func (w *MockWatcher) Watch(path string, e Event, isrec bool) error {
 	if err := w.watcher().Watch(w.clean(path), e, isrec); err != nil {
 		if isrec {
@@ -178,6 +191,29 @@ Test:
 			case <-time.After(w.timeout()):
 				w.Fatalf("timed out after %v waiting for one of %v (i=%d)", w.timeout(),
 					cas.Events, i)
+			}
+			drainall(w.C) // TODO(rjeczalik): revisit
+		}
+	}
+}
+
+func (w *MockWatcher) ExpectNone(cases []FileOperation) {
+	UpdateWait() // Wait some time before starting the test.
+	for i, cas := range cases {
+		cas.Action()
+		Sync()
+		switch cas.Events {
+		case nil:
+			if ei := drainall(w.C); len(ei) != 0 {
+				w.Fatalf("unexpected dangling events: %v (i=%d)", ei, i)
+			}
+		default:
+			select {
+			case ei := <-w.C:
+				w.Fatalf("ExpectNone received an event (i=%d): wants nothing of %v; got %v", i, cas.Events, ei)
+			case <-time.After(w.timeout()):
+				dbgprintf("ExpectNone did not recevie anything within the timeout.")
+				continue
 			}
 			drainall(w.C) // TODO(rjeczalik): revisit
 		}

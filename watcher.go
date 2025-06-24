@@ -23,6 +23,8 @@ var (
 // the ease of implementation it is guaranteed that paths provided via Watch and
 // Unwatch methods are absolute and clean.
 type watcher interface {
+	Exclude(pattern string) error
+
 	// Watch requests a watcher creation for the given path and given event set.
 	Watch(path string, event Event, is_recursive bool) error
 

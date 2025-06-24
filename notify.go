@@ -29,6 +29,17 @@ func NewNotify() Notify {
 
 type DoNotWatchFn func(string) bool
 
+// Exclude will take add a single attern and add it to a blacklist of paths to exclude
+// from notifying. The exclusion will occur right before attempting to send an
+// event, which means that there are no filtering on watchpoint level.
+//
+// Note: even if you exclude paths you will be watching them through the watchpoints.
+// This could cause performance issues if you want to exclude noisy file/dir events, have
+// many or complex exlusion patterns. A future improvement would be to make this a bit more clever.
+func (notify *Notify) Exclude(pattern string) error {
+	return notify.tree.Exclude(pattern)
+}
+
 // Watch sets up a watchpoint on path listening for events given by the events
 // argument.
 //

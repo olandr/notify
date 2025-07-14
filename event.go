@@ -142,3 +142,10 @@ var estr = map[Event]string{
 	recursive: "recursive",
 	omit:      "omit",
 }
+
+// NewEventFromString takes a string representation (unless anything else specified it is the canonical name) of an Event. String representations are OS-specific. If there exists no event with the given name, for the OS being used, this function will return nil, false.
+func NewEventFromString(name string) (Event, bool) {
+	e, ok := osstre[name]
+	fmt.Printf("osstre: %v\n", osstre)
+	return e, ok
+}

@@ -42,17 +42,32 @@ const (
 
 var osestr = map[Event]string{
 	InAccess:       "notify.InAccess",
-	InModify:       "notify.InModify",
 	InAttrib:       "notify.InAttrib",
-	InCloseWrite:   "notify.InCloseWrite",
 	InCloseNowrite: "notify.InCloseNowrite",
-	InOpen:         "notify.InOpen",
-	InMovedFrom:    "notify.InMovedFrom",
-	InMovedTo:      "notify.InMovedTo",
+	InCloseWrite:   "notify.InCloseWrite",
 	InCreate:       "notify.InCreate",
 	InDelete:       "notify.InDelete",
 	InDeleteSelf:   "notify.InDeleteSelf",
+	InModify:       "notify.InModify",
+	InMovedFrom:    "notify.InMovedFrom",
+	InMovedTo:      "notify.InMovedTo",
 	InMoveSelf:     "notify.InMoveSelf",
+	InOpen:         "notify.InOpen",
+}
+
+var osstre = map[string]Event{
+	"notify.InAccess":       InAccess,
+	"notify.InAttrib":       InAttrib,
+	"notify.InCloseNowrite": InCloseNowrite,
+	"notify.InCloseWrite":   InCloseWrite,
+	"notify.InCreate":       InCreate,
+	"notify.InDelete":       InDelete,
+	"notify.InDeleteSelf":   InDeleteSelf,
+	"notify.InModify":       InModify,
+	"notify.InMovedFrom":    InMovedFrom,
+	"notify.InMovedTo":      InMovedTo,
+	"notify.InMoveSelf":     InMoveSelf,
+	"notify.InOpen":         InOpen,
 }
 
 // Inotify behavior events are not **currently** supported by notify package.
